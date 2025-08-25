@@ -1,0 +1,12 @@
+Django==4.2.7
+djangorestframework==3.15.2
+djangorestframework-simplejwt
+social-auth-app-django
+social-auth-core
+psycopg2-binary
+python-dotenv
+drf-yasg
+
+
+
+#configurar la seguridad

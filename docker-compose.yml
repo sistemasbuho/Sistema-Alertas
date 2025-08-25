@@ -1,0 +1,29 @@
+services:
+  alertas-app:
+    build: .
+    container_name: alertas-app
+    image: buho/alertas-app
+    volumes:
+      - .:/alertas-app
+      - /tmp/.X11-unix:/tmp/.X11-unix # Monta el socket de X11 desde el host
+    environment:
+      VIRTUAL_HOST: 'alertas.buho.media'
+      C_FORCE_ROOT: 1
+      LC_ALL: 'C.UTF-8'
+      LANG: 'C.UTF-8'
+      TZ: 'America/Bogota'
+      VIRTUAL_PORT: '8888'
+      # LETSENCRYPT_HOST: 'alertas.buho.media'
+      # LETSENCRYPT_EMAIL: 'sistemas.buho@gnilat.com'
+      DISPLAY: ':99'  # Asegúrate de que DISPLAY esté configurado
+      XAUTHORITY: '/root/.Xauthority' # Especifica la ubicación del archivo .Xauthority
+    networks:
+      - default
+      - nginx_proxy
+
+networks:
+  default:
+  nginx_proxy:
+    external: true
+
+
