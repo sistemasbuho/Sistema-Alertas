@@ -1,22 +1,20 @@
 services:
-  alertas-app:
+  sistemas-alertas:          # nombre del servicio en Compose
+    container_name: sistemas-alertas   # nombre del contenedor real
     build: .
-    container_name: alertas-app
     image: buho/alertas-app
+    working_dir: /app
     volumes:
-      - .:/alertas-app
-      - /tmp/.X11-unix:/tmp/.X11-unix # Monta el socket de X11 desde el host
+      - ./:/app
     environment:
-      VIRTUAL_HOST: 'api.alertas'
-      C_FORCE_ROOT: 1
-      LC_ALL: 'C.UTF-8'
-      LANG: 'C.UTF-8'
-      TZ: 'America/Bogota'
-      VIRTUAL_PORT: '8888'
-      LETSENCRYPT_HOST: 'api.alertas'
-      LETSENCRYPT_EMAIL: 'sistemas.buho@gnilat.com'
-      DISPLAY: ':99'  # Asegúrate de que DISPLAY esté configurado
-      XAUTHORITY: '/root/.Xauthority' # Especifica la ubicación del archivo .Xauthority
+      C_FORCE_ROOT: "1"
+      LC_ALL: "C.UTF-8"
+      LANG: "C.UTF-8"
+      TZ: "America/Bogota"
+      VIRTUAL_HOST: "api.alertas"
+      VIRTUAL_PORT: "8888"
+      LETSENCRYPT_HOST: "api.alertas"
+      LETSENCRYPT_EMAIL: "sistemas.buho@gnilat.com"
     networks:
       - default
       - nginx_proxy
@@ -25,5 +23,3 @@ networks:
   default:
   nginx_proxy:
     external: true
-
-
