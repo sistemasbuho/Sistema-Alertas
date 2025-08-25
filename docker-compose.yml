@@ -1,8 +1,8 @@
 services:
-  sistemas-alertas:          # nombre del servicio en Compose
-    container_name: sistemas-alertas   # nombre del contenedor real
+  sistemas-alertas:         
+    container_name: sistemas-alertas  
     build: .
-    image: buho/alertas-app
+    image: buho/sistema-alertas-app
     working_dir: /app
     volumes:
       - ./:/app
