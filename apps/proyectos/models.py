@@ -1,7 +1,6 @@
 from django.db import models
 from django.conf import settings
 from apps.base.models import BaseModel
-# from django_currentuser.middleware import get_current_user
 
 
 # Create your models here.
@@ -44,14 +43,14 @@ class Proyecto(BaseModel):
     proveedor = models.CharField(
         'Nombre del proveedor', 
         max_length=500, 
-        unique=True,
-        help_text="Nombre descriptivo del proyecto"
+        unique=False,
+        help_text="Nombre descriptivo del proveedor"
     )
     
     codigo_acceso = models.CharField(
         'Código de acceso', 
         max_length=100, 
-        unique=True,
+        unique=False,
         help_text="Código único para acceder al proyecto"
     )
     
@@ -67,7 +66,7 @@ class Proyecto(BaseModel):
         'Tipo de envío', 
         max_length=20, 
         choices=TIPO_ENVIO_CHOICES, 
-        default='inmediato',
+        default='manual',
         help_text="Modalidad de envío de mensajes"
     )
     
