@@ -11,9 +11,9 @@ services:
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
       TZ: "America/Bogota"
-      VIRTUAL_HOST: "api.alertas"
-      VIRTUAL_PORT: "8888"
-      LETSENCRYPT_HOST: "api.alertas"
+      VIRTUAL_HOST: "api.alertas.buho.media"
+      VIRTUAL_PORT: "8850"
+      LETSENCRYPT_HOST: "api.alertas.buho.media"
       LETSENCRYPT_EMAIL: "sistemas.buho@gnilat.com"
     networks:
       - default
