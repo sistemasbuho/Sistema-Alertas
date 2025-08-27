@@ -10,6 +10,11 @@ class ProyectoAPIView(generics.GenericAPIView):
     serializer_class = ProyectoCreateSerializer
     lookup_field = 'id'
 
+    def get(self, request, *args, **kwargs):
+        proyectos = self.get_queryset()
+        serializer = ProyectoCreateSerializer(proyectos, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     # Método para crear un proyecto
     def post(self, request, *args, **kwargs):
         serializer = ProyectoCreateSerializer(data=request.data)
