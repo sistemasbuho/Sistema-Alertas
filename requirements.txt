@@ -7,6 +7,7 @@ psycopg2-binary
 python-dotenv
 drf-yasg
 django-currentuser
+django-simple-history
 
 
 
