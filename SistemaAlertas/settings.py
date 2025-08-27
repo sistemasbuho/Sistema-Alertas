@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-))s5$8+bkas5c46*-+c8flpos7k6n83&gw=q@l9&$8#)ikt3xy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "api.alertas.buho.media"]
 
 
 # Application definition
