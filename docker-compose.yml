@@ -1,6 +1,7 @@
 services:
   sistemas-alertas:         
     container_name: sistemas-alertas  
+    command: python manage.py runserver 0.0.0.0:8850
     build: .
     image: buho/sistema-alertas-app
     working_dir: /app
