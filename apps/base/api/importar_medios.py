@@ -44,7 +44,6 @@ class ImportarArticuloAPIView(APIView):
                 })
                 continue
 
-            # Validar duplicados en el mismo proyecto
             if Articulo.objects.filter(url=url, proyecto=proyecto).exists():
                 errores.append({
                     "url": url,
@@ -53,7 +52,6 @@ class ImportarArticuloAPIView(APIView):
                 continue
 
 
-            # Crear artículo
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
