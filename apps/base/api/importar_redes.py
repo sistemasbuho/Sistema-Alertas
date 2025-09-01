@@ -6,6 +6,7 @@ from apps.base.models import Redes
 
 class ImportarRedesAPIView(APIView):
     def post(self, request):
+        print('request.data',request.data)
         proyecto_id = request.data.get("proyecto_id")
         redes_data = request.data.get("redes", [])
 
