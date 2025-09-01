@@ -9,6 +9,9 @@ class ImportarRedesAPIView(APIView):
         proyecto_id = request.data.get("proyecto_id")
         redes_data = request.data.get("redes", [])
 
+        if isinstance(proyecto_id, list):
+            proyecto_id = proyecto_id[0]
+
         errores = []
         creados = []
 

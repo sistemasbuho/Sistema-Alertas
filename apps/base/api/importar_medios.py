@@ -10,7 +10,6 @@ from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
     def post(self, request):
-        print('request.data',request.data)
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
@@ -20,7 +19,6 @@ class ImportarArticuloAPIView(APIView):
         errores = []
         creados = []
 
-        # Validaciones iniciales
         if not proyecto_id or not articulos_data:
             return Response(
                 {"error": "Se requieren 'proyecto_id' y 'articulos'"},
@@ -31,7 +29,6 @@ class ImportarArticuloAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
-        # Iterar sobre los artículos recibidos
         for data in articulos_data:
             titulo = data.get("titulo")
             contenido = data.get("contenido")
@@ -40,8 +37,8 @@ class ImportarArticuloAPIView(APIView):
             autor = data.get("autor")
             reach = data.get("reach")
 
-            # Validar URL obligatoria
-            if not url or not url.strip():
+            
+            if not url or not url.strip():# Validar URL obligatoria
                 errores.append({
                     "titulo": titulo,
                     "error": "La URL es obligatoria"
