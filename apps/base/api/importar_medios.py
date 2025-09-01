@@ -10,6 +10,7 @@ from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
     def post(self, request):
+        print('request.data',request.data)
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 

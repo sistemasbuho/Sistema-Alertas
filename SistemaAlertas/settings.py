@@ -41,7 +41,6 @@ DJANGO_APPS = [
     'django.contrib.staticfiles',
     'simple_history',
     "corsheaders"
-
 ]   
 
 PROJECT_APPS = [
@@ -123,6 +122,19 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=9),   # Access token válido 3h
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),   # Refresh token válido 7 días (ajústalo a tu necesidad)
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,   # normalmente ya lo toma del settings
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 
 
 # Database
