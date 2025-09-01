@@ -14,6 +14,9 @@ class ImportarArticuloAPIView(APIView):
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
+        if isinstance(proyecto_id, list):
+            proyecto_id = proyecto_id[0]
+
         errores = []
         creados = []
 
