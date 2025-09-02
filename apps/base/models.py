@@ -42,16 +42,13 @@ class BaseModel(IdToken):
         except Exception:
             user = None
 
-        if user and hasattr(user, "id"):
+        # Ignorar el usuario si es anónimo
+        if user and user.is_authenticated:
             if self._state.adding:
                 self.created_by = user
             self.modified_by = user
 
         super().save(*args, **kwargs)
-
-    class Meta:
-        abstract = True
-
 
 
 class Articulo(BaseModel):
