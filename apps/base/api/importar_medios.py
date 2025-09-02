@@ -9,7 +9,18 @@ from rest_framework.views import APIView
 from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+
     def post(self, request):
+
+        origin = request.headers.get("Origin") or request.headers.get("Referer")
+        if not origin or not any(origin.startswith(d) for d in ALLOWED_ORIGINS):
+            return Response(
+                {"error": "Dominio no autorizado"},
+                status=status.HTTP_403_FORBIDDEN
+            )
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
