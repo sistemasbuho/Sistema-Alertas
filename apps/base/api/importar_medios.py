@@ -9,17 +9,16 @@ from rest_framework.views import APIView
 from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
+    # Deshabilitamos autenticación y permisos para permitir acceso desde servidor A
     authentication_classes = []
     permission_classes = []
 
-
     def post(self, request):
+        # Validación de dominio
         origin = request.headers.get("X-Custom-Domain")
         if origin != "https://api.monitoreo.buho.media/":
             return Response({"error": "Dominio no autorizado"}, status=403)
 
-        print('proyecto_id:', request.data.get("proyecto_id"))
-        print('articulos:', request.data.get("articulos"))
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
@@ -39,6 +38,11 @@ class ImportarArticuloAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
+        # Obtener un usuario “sistema” fijo para asignar created_by
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        sistema_user = User.objects.get(id=1)  # usuario con ID 1
+
         for data in articulos_data:
             titulo = data.get("titulo")
             contenido = data.get("contenido")
@@ -47,20 +51,15 @@ class ImportarArticuloAPIView(APIView):
             autor = data.get("autor")
             reach = data.get("reach")
             
-            if not url or not url.strip():# Validar URL obligatoria
-                errores.append({
-                    "titulo": titulo,
-                    "error": "La URL es obligatoria"
-                })
+            if not url or not url.strip():
+                errores.append({"titulo": titulo, "error": "La URL es obligatoria"})
                 continue
 
             if Articulo.objects.filter(url=url, proyecto=proyecto).exists():
-                errores.append({
-                    "url": url,
-                    "error": "La URL ya existe en este proyecto"
-                })
+                errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
 
+            # Crear artículo asignando created_by al usuario “sistema”
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
@@ -68,13 +67,17 @@ class ImportarArticuloAPIView(APIView):
                 fecha_publicacion=fecha if fecha else now(),
                 autor=autor,
                 reach=reach,
-                proyecto=proyecto
+                proyecto=proyecto,
+                created_by=sistema_user
             )
 
+            # Crear detalle de envío
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
-                medio=articulo
+                medio=articulo,
+                usuario=sistema_user  # también asignar usuario aquí
             )
+
             creados.append({
                 "id": articulo.id,
                 "titulo": articulo.titulo,
@@ -82,10 +85,8 @@ class ImportarArticuloAPIView(APIView):
             })
 
         return Response(
-            {
-                "mensaje": f"{len(creados)} artículos creados.",
-                "creados": creados,
-                "errores": errores
-            },
+            {"mensaje": f"{len(creados)} artículos creados.",
+             "creados": creados,
+             "errores": errores},
             status=201 if creados else 400
         )
