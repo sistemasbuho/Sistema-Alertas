@@ -41,6 +41,8 @@ class GoogleLoginAPIView(APIView):
 
             # Emitir JWT
             refresh = RefreshToken.for_user(user)
+            print('refresh.access_token',refresh.access_token)
+            print('refresh',refresh)
             return Response({
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
