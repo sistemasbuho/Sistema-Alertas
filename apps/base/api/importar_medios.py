@@ -16,11 +16,13 @@ class ImportarArticuloAPIView(APIView):
     def post(self, request):
 
         origin = request.headers.get("Origin") or request.headers.get("Referer")
+        print('origin',origin)
         if not origin or not any(origin.startswith(d) for d in ALLOWED_ORIGINS):
             return Response(
                 {"error": "Dominio no autorizado"},
                 status=status.HTTP_403_FORBIDDEN
             )
+
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
