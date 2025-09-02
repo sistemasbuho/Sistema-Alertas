@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils.timezone import now
 from apps.proyectos.models import Proyecto
-from apps.base.models import Redes,RedesSociales
+from apps.base.models import Redes,RedesSociales,DetalleEnvio
 
 class ImportarRedesAPIView(APIView):
     def post(self, request):
@@ -64,6 +64,12 @@ class ImportarRedesAPIView(APIView):
                 proyecto=proyecto,
                 red_social=red_social_obj 
             )
+
+            detalle_envio = DetalleEnvio.objects.create(
+                estado_enviado=False,
+                red_social=red
+            )
+
             creados.append({
                 "id": red.id,
                 "url": red.url,

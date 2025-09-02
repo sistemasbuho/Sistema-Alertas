@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from apps.base.models import Articulo,Redes
+from apps.base.models import Articulo,Redes,DetalleEnvio
 from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 
@@ -36,7 +36,6 @@ class ImportarArticuloAPIView(APIView):
             url = data.get("url")
             autor = data.get("autor")
             reach = data.get("reach")
-
             
             if not url or not url.strip():# Validar URL obligatoria
                 errores.append({
@@ -52,7 +51,6 @@ class ImportarArticuloAPIView(APIView):
                 })
                 continue
 
-
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
@@ -61,6 +59,11 @@ class ImportarArticuloAPIView(APIView):
                 autor=autor,
                 reach=reach,
                 proyecto=proyecto
+            )
+
+            detalle_envio = DetalleEnvio.objects.create(
+                estado_enviado=False,
+                medio=articulo
             )
             creados.append({
                 "id": articulo.id,

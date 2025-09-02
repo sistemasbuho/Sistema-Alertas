@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class CapturaAlertasViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='capturar-alertas')
-    def capturar_alertas(self, request):
+    def capturar_alertas_medios(self, request):
         """
         Captura alertas recibidas vía JSON, valida duplicados por URL y proyecto,
         parsea fechas y devuelve resultado al front.
@@ -30,13 +30,7 @@ class CapturaAlertasViewSet(viewsets.ViewSet):
         duplicadas = []
 
         for record in alertas:
-            url = record.get("url")
-            mensaje = record.get("contenido", "")
-            fecha_str = record.get("fecha")
-            fecha_pub = self._parse_fecha(fecha_str)
-
-            # Validar duplicado por URL y proyecto
-            alerta_existente = DetalleEnvio.objects.filter(url=url, proyecto=proyecto).first()
+            alerta_existente = DetalleEnvio.objects.filter(url=url, proyecto=proyecto).first()# Validar duplicado por URL y proyecto
             if alerta_existente:
                 duplicadas.append({
                     "id": alerta_existente.id,
@@ -44,6 +38,16 @@ class CapturaAlertasViewSet(viewsets.ViewSet):
                     "mensaje": alerta_existente.mensaje
                 })
                 continue
+
+            #Ajustar la alerta que si pasa 
+            titulo = record.get("titulo")
+            url = record.get("url")
+            mensaje = record.get("contenido", "")
+            fecha_str = record.get("fecha")
+            fecha_pub = self._parse_fecha(fecha_str)
+            autor = record.get("autor")
+            reach = record.get("reach")
+
 
             # Solo parseamos y preparamos para enviar al front
             procesadas.append({

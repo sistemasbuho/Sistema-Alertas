@@ -91,6 +91,7 @@ class DetalleEnvio(BaseModel):
     inicio_envio = models.DateTimeField()
     fin_envio = models.DateTimeField()
     mensaje = models.TextField(null=True)
+    estado_enviado = models.BooleanField(default=False)
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,  

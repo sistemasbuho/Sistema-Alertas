@@ -3,5 +3,5 @@ from apps.whatsapp.api.enviar_mensaje import CapturaAlertasViewSet
 
 
 urlpatterns = [
-    path("whatsapp/captura_alerta", CapturaAlertasViewSet.as_view(), name="captura-alerta"),
+    path("whatsapp/captura_alerta_medios", capturar_alertas_medios.as_view(), name="captura-alerta-medios"),
 ]
