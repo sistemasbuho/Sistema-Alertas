@@ -1,6 +1,6 @@
 from rest_framework import generics
 from apps.proyectos.models import Proyecto
-from apps.proyectos.serializers.proyecto_serializer  import ProyectoCreateSerializer
+from apps.proyectos.serializers.proyecto_serializer  import ProyectoCreateSerializer,ProyectoUpdateSerializer
 from rest_framework.response import Response
 from rest_framework import generics, status
 

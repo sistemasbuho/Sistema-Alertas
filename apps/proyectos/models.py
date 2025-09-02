@@ -36,7 +36,6 @@ class Proyecto(BaseModel):
     nombre = models.CharField(
         'Nombre del proyecto', 
         max_length=500, 
-        unique=True,
         help_text="Nombre descriptivo del proyecto"
     )
 
