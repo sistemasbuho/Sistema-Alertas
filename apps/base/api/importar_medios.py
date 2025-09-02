@@ -41,7 +41,7 @@ class ImportarArticuloAPIView(APIView):
         # Obtener un usuario “sistema” fijo para asignar created_by
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        sistema_user = User.objects.get(id=1)  # usuario con ID 1
+        sistema_user = User.objects.get(id=2)  # usuario con ID 1
         print('sistema_user---------',sistema_user)
 
         for data in articulos_data:
