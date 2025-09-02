@@ -33,6 +33,7 @@ class ImportarRedesAPIView(APIView):
             autor = data.get("autor")
             reach = data.get("reach")
             engagement = data.get("engagement")
+            red_social_nombre = data.get("red_social") 
 
             if not url or not url.strip():
                 errores.append({
@@ -47,6 +48,11 @@ class ImportarRedesAPIView(APIView):
                     "error": "La URL ya existe en este proyecto"
                 })
                 continue
+            
+            red_social_obj = None
+            if red_social_nombre:
+                red_social_obj = RedesSociales.objects.filter(nombre=red_social_nombre).first()
+
 
             red = Redes.objects.create(
                 contenido=contenido,
@@ -55,7 +61,8 @@ class ImportarRedesAPIView(APIView):
                 autor=autor,
                 reach=reach,
                 engagement=engagement,
-                proyecto=proyecto
+                proyecto=proyecto,
+                red_social=red_social_obj 
             )
             creados.append({
                 "id": red.id,
