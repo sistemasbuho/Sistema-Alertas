@@ -18,13 +18,11 @@ class GoogleLoginAPIView(APIView):
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Verificar el ID Token con Google
             idinfo = id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
-                audience=None  # opcional: puedes validar con tu CLIENT_ID del .env
+                audience=settings.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY  # en lugar de None
             )
-
             email = idinfo.get("email")
             name = idinfo.get("name")
             picture = idinfo.get("picture")
@@ -32,7 +30,6 @@ class GoogleLoginAPIView(APIView):
             if not email:
                 return Response({"error": "No email found in token"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Buscar o crear usuario en tu base de datos
             user, created = User.objects.get_or_create(email=email, defaults={"username": email.split("@")[0]})
             
             if created:
