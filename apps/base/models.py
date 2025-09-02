@@ -42,15 +42,16 @@ class BaseModel(IdToken):
         except Exception:
             user = None
 
-        if user and hasattr(user, "id"):
-            if self._state.adding:
+        if user and getattr(user, "is_authenticated", False):
+            if self._state.adding and not self.created_by:
                 self.created_by = user
             self.modified_by = user
 
         super().save(*args, **kwargs)
 
     class Meta:
-        abstract = True
+        abstract = True  # ← Esto es lo que falta
+
 
 
 
@@ -117,4 +118,10 @@ class DetalleEnvio(BaseModel):
     history = HistoricalRecords(table_name='detalle_envio_history')
 
     def __str__(self):
-        return f"Envio {self.id} - Proyecto: {self.proyecto.nombre}"
+        proyecto_nombre = None
+        if self.medio and self.medio.proyecto:
+            proyecto_nombre = self.medio.proyecto.nombre
+        elif self.red_social and self.red_social.proyecto:
+            proyecto_nombre = self.red_social.proyecto.nombre
+
+        return f"Envio {self.id} - Proyecto: {proyecto_nombre}"

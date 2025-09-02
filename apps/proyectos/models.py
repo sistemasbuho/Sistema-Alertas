@@ -1,13 +1,16 @@
 from django.db import models
 from django.conf import settings
 from apps.base.models import BaseModel
+import uuid
 
 
 # Create your models here.
-class Proyecto(BaseModel):
+class Proyecto(models.Model):
     """
     Modelo para gestionar proyectos del sistema
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     # Opciones para campos de selección
     ESTADO_CHOICES = [
         ('activo', 'Activo'),
@@ -38,6 +41,7 @@ class Proyecto(BaseModel):
         max_length=500, 
         help_text="Nombre descriptivo del proyecto"
     )
+
 
     proveedor = models.CharField(
         'Nombre del proveedor', 
@@ -93,10 +97,12 @@ class Proyecto(BaseModel):
         help_text="Palabras clave separadas por comas para filtrar mensajes"
     )
 
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         verbose_name = 'Proyecto'
         verbose_name_plural = 'Proyectos'
-        ordering = ['-created_at']
+
         indexes = [
             models.Index(fields=['nombre']),
             models.Index(fields=['codigo_acceso']),
