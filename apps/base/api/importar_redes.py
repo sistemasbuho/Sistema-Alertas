@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils.timezone import now
 from apps.proyectos.models import Proyecto
-from apps.base.models import Redes
+from apps.base.models import Redes,RedesSociales
 
 class ImportarRedesAPIView(APIView):
     def post(self, request):
