@@ -18,7 +18,8 @@ class ImportarArticuloAPIView(APIView):
         if origin != "https://api.monitoreo.buho.media/":
             return Response({"error": "Dominio no autorizado"}, status=403)
 
-        print('request.data.get',request.data.get)
+        print('proyecto_id:', request.data.get("proyecto_id"))
+        print('articulos:', request.data.get("articulos"))
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
