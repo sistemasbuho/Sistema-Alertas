@@ -10,10 +10,12 @@ class GoogleLoginAPIView(APIView):
     permission_classes = [AllowAny] 
 
     def post(self, request):
+        print('request.data.get---------------',request.data.get)
         token = (
             request.data.get("id_token")
             or request.data.get("access_token")
             or request.data.get("token")
+            or request.data.get("credential")  # <-- agregado
         )
         if not token:
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -29,7 +31,6 @@ class GoogleLoginAPIView(APIView):
         if user and user.is_active:
             login(request, user)
 
-            # Emitimos JWT propio (SimpleJWT)
             refresh = RefreshToken.for_user(user)
             return Response({
                 "access": str(refresh.access_token),
