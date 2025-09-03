@@ -14,7 +14,6 @@ class ImportarRedesAPIView(APIView):
             return Response({"error": "Dominio no autorizado"}, status=403)
 
 
-        print('request.data',request.data)
         proyecto_id = request.data.get("proyecto_id")
         redes_data = request.data.get("redes", [])
 
