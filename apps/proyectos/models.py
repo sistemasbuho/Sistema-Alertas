@@ -97,7 +97,30 @@ class Proyecto(models.Model):
         help_text="Palabras clave separadas por comas para filtrar mensajes"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField('Fecha de creación', auto_now_add=True, editable=False)
+    modified_at = models.DateTimeField('Fecha de modificación', auto_now=True, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='Creado por',
+        related_name='%(app_label)s_%(class)s_creado_por',
+        null=True,
+        blank=True,
+        default=None,
+        on_delete=models.SET_NULL,
+        editable=False
+    )
+    modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='Modificado por',
+        related_name='%(app_label)s_%(class)s_modificado_por',
+        null=True,
+        blank=True,
+        default=None,
+        on_delete=models.SET_NULL,
+        editable=False
+    )
+
+    
 
     class Meta:
         verbose_name = 'Proyecto'
@@ -125,3 +148,6 @@ class Proyecto(models.Model):
         Establece las palabras clave desde una lista
         """
         self.keywords = ', '.join([str(keyword).strip() for keyword in keywords_list])
+
+
+
