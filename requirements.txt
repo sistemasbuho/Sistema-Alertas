@@ -9,7 +9,7 @@ drf-yasg
 django-currentuser
 django-simple-history
 django-cors-headers
+django-filter
 
 
 
-#configurar la seguridad

@@ -1,5 +1,5 @@
 import django_filters
-from .models import Redes, Medios
+from apps.base.models import Redes, Articulo
 
 class RedesFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha", lookup_expr="gte")
@@ -20,5 +20,5 @@ class MediosFilter(django_filters.FilterSet):
     proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
 
     class Meta:
-        model = Medios
+        model = Articulo
         fields = ["medio", "ciudad", "proyecto", "fecha_inicio", "fecha_fin"]
