@@ -10,3 +10,14 @@ class RedesListAPIView(generics.ListAPIView):
     serializer_class = RedesSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = RedesFilter
+
+class RedesUpdateAPIView(generics.UpdateAPIView):
+    queryset = Redes.objects.all()
+    serializer_class = RedesSerializer
+    lookup_field = "pk"  # usa la PK (UUID o ID) para identificar el objeto
+
+    def perform_update(self, serializer):
+        """
+        Sobrescribe el update para guardar el usuario que actualiza.
+        """
+        serializer.save(updated_by=self.request.user)
