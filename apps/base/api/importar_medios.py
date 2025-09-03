@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from apps.base.models import Articulo,Redes,DetalleEnvio
 from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
+from django.contrib.auth import get_user_model
+
 
 
 from django.utils.timezone import now
@@ -38,10 +40,8 @@ class ImportarArticuloAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
-        # Obtener un usuario “sistema” fijo para asignar created_by
-        from django.contrib.auth import get_user_model
         User = get_user_model()
-        sistema_user = User.objects.get(id=2)  # usuario con ID 1
+        sistema_user = User.objects.get(id=2) 
 
         for data in articulos_data:
             titulo = data.get("titulo")
