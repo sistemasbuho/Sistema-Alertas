@@ -74,7 +74,7 @@ class RedesSociales(BaseModel):
 
 class Redes(BaseModel):
     contenido = models.TextField(verbose_name="Contenido",null=True, blank=True)
-    fecha = models.DateTimeField(verbose_name="Publicado")
+    fecha_publicacion = models.DateTimeField(verbose_name="Publicado")
     url = models.URLField(verbose_name="url",max_length=10000, unique=False, blank=True)
     autor =  models.CharField(max_length=100, null=True, blank=True)
     reach = models.IntegerField(null=True, blank=True)
