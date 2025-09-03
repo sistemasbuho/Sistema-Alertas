@@ -80,7 +80,7 @@ class ImportarRedesAPIView(APIView):
             creados.append({
                 "id": red.id,
                 "url": red.url,
-                "fecha": red.fecha
+                "fecha": red.fecha_publicacion
             })
 
         return Response(
