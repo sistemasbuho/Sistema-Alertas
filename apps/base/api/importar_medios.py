@@ -74,8 +74,7 @@ class ImportarArticuloAPIView(APIView):
             # Crear detalle de envío
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
-                medio=articulo,
-                usuario=sistema_user  # también asignar usuario aquí
+                medio=articulo
             )
 
             creados.append({

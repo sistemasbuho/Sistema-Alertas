@@ -97,7 +97,9 @@ class DetalleEnvio(BaseModel):
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,  
         on_delete=models.CASCADE,
-        related_name="detalles_envio"
+        related_name="detalles_envio",
+        null=True,
+        blank=True
     )
 
     red_social = models.ForeignKey(
