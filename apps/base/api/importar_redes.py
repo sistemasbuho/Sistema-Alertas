@@ -9,11 +9,12 @@ class ImportarRedesAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        # Validación de dominio
         origin = request.headers.get("X-Custom-Domain")
         if origin != "https://api.monitoreo.buho.media/":
             return Response({"error": "Dominio no autorizado"}, status=403)
 
+
+        print('request.data',equest.data)
         proyecto_id = request.data.get("proyecto_id")
         redes_data = request.data.get("redes", [])
 
