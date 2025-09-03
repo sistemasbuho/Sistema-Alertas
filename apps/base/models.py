@@ -89,8 +89,8 @@ class Redes(BaseModel):
 
 
 class DetalleEnvio(BaseModel):
-    inicio_envio = models.DateTimeField()
-    fin_envio = models.DateTimeField()
+    inicio_envio = models.DateTimeField(null=True)
+    fin_envio = models.DateTimeField(null=True)
     mensaje = models.TextField(null=True)
     estado_enviado = models.BooleanField(default=False)
 

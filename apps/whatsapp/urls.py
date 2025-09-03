@@ -1,7 +1,7 @@
+from rest_framework.routers import DefaultRouter
+from apps.whatsapp.api.enviar_mensaje import CapturaAlertasMediosAPIView
 from django.urls import path
-from apps.whatsapp.api.enviar_mensaje import CapturaAlertasViewSet
-
 
 urlpatterns = [
-    path("whatsapp/captura_alerta_medios", capturar_alertas_medios.as_view(), name="captura-alerta-medios"),
+    path('whatsapp/captura_alerta_medios/', CapturaAlertasMediosAPIView.as_view(), name='captura-alerta-medios'),
 ]

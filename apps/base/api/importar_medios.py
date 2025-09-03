@@ -42,7 +42,6 @@ class ImportarArticuloAPIView(APIView):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         sistema_user = User.objects.get(id=2)  # usuario con ID 1
-        print('sistema_user---------',sistema_user)
 
         for data in articulos_data:
             titulo = data.get("titulo")

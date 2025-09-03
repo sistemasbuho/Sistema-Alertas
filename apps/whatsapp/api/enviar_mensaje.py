@@ -8,16 +8,18 @@ import logging
 from apps.proyectos.models import Proyecto
 from apps.base.models import DetalleEnvio
 from django.utils.timezone import now
+from rest_framework.views import APIView
+
 
 logger = logging.getLogger(__name__)
 
-class CapturaAlertasViewSet(viewsets.ViewSet):
-    @action(detail=False, methods=['post'], url_path='capturar-alertas')
-    def capturar_alertas_medios(self, request):
-        """
-        Captura alertas recibidas vía JSON, valida duplicados por URL y proyecto,
-        parsea fechas y devuelve resultado al front.
-        """
+class CapturaAlertasMediosAPIView(APIView):
+    """
+    Captura alertas recibidas vía JSON, valida duplicados por URL y proyecto,
+    parsea fechas y devuelve resultado al front.
+    """
+
+    def post(self, request):
         proyecto_id = request.data.get("proyecto_id")
         alertas = request.data.get("alertas", [])
 
@@ -30,36 +32,32 @@ class CapturaAlertasViewSet(viewsets.ViewSet):
         duplicadas = []
 
         for record in alertas:
-            alerta_existente = DetalleEnvio.objects.filter(url=url, proyecto=proyecto).first()# Validar duplicado por URL y proyecto
+            url = record.get("url")
+            alerta_existente = DetalleEnvio.objects.filter(medio=record.get("id"),estado_enviado=True).first()
             if alerta_existente:
                 duplicadas.append({
                     "id": alerta_existente.id,
-                    "url": alerta_existente.url,
+                    "id_articulo": record.get("id"),
                     "mensaje": alerta_existente.mensaje
                 })
                 continue
 
-            #Ajustar la alerta que si pasa 
+            # Ajustar la alerta que sí pasa
             titulo = record.get("titulo")
-            url = record.get("url")
             mensaje = record.get("contenido", "")
             fecha_str = record.get("fecha")
             fecha_pub = self._parse_fecha(fecha_str)
             autor = record.get("autor")
             reach = record.get("reach")
 
-
             # Solo parseamos y preparamos para enviar al front
             procesadas.append({
-                "id": alerta_existente.id,
-                "url": alerta_existente.url,
-                "mensaje": alerta_existente.mensaje,
-                "fecha": alerta_existente.inicio_envio,
-                "autor": alerta_existente.medio.autor if alerta_existente.medio else None,
-                "reach": getattr(alerta_existente.medio, "reach", None),
-                "engagement": getattr(alerta_existente.medio, "engagement", None),
-                "red_social_id": alerta_existente.red_social.id if alerta_existente.red_social else None,
-                "medio_id": alerta_existente.medio.id if alerta_existente.medio else None
+                "titulo": titulo,
+                "url": url,
+                "mensaje": mensaje,
+                "fecha": fecha_pub,
+                "autor": autor,
+                "reach": reach
             })
 
         return Response({

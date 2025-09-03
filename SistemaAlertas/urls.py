@@ -39,6 +39,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('apps.base.urls')),
     path('api/', include('apps.proyectos.urls')),
+    path('api/', include('apps.whatsapp.urls')),
+
 
 
 
