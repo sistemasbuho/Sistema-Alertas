@@ -35,7 +35,7 @@ class ImportarRedesAPIView(APIView):
 
         for data in redes_data:
             contenido = data.get("contenido")
-            fecha = data.get("fecha_publicacion")
+            fecha = data.get("fecha")
             url = data.get("url")
             autor = data.get("autor")
             reach = data.get("reach")
@@ -63,7 +63,7 @@ class ImportarRedesAPIView(APIView):
 
             red = Redes.objects.create(
                 contenido=contenido,
-                fecha=fecha if fecha else now(),
+                fecha_publicacion=fecha if fecha else now(),
                 url=url.strip(),
                 autor=autor,
                 reach=reach,
