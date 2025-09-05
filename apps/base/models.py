@@ -127,3 +127,30 @@ class DetalleEnvio(BaseModel):
             proyecto_nombre = self.red_social.proyecto.nombre
 
         return f"Envio {self.id} - Proyecto: {proyecto_nombre}"
+
+
+
+class TemplateConfig(BaseModel):
+    nombre = models.CharField(max_length=150)
+    app_label = models.CharField(max_length=100) 
+    model_name = models.CharField(max_length=100)  
+    proyecto = models.ForeignKey(
+        "proyectos.Proyecto", 
+        on_delete=models.CASCADE, 
+        related_name="plantillas"
+    )
+
+    def get_model_fields(self):
+        from django.apps import apps
+        Model = apps.get_model(self.app_label, self.model_name)
+        return [f.name for f in Model._meta.get_fields() if f.concrete]
+
+class TemplateCampoConfig(BaseModel):
+    plantilla = models.ForeignKey(
+        TemplateConfig, 
+        on_delete=models.CASCADE, 
+        related_name="campos"
+    )
+    campo = models.CharField(max_length=100)   
+    orden = models.PositiveIntegerField(default=0)
+    estilo = models.JSONField(default=dict, blank=True)

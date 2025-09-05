@@ -134,15 +134,14 @@ CORS_ALLOW_CREDENTIALS = True
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=9),   # Access token válido 3h
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),   # Refresh token válido 7 días (ajústalo a tu necesidad)
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),   # Access token válido 7 días
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Refresh token válido 7 días
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,   # normalmente ya lo toma del settings
+    "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-
 
 
 # Database
