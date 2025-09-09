@@ -74,7 +74,8 @@ class ImportarRedesAPIView(APIView):
 
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
-                red_social=red
+                red_social=red,
+                proyecto_id=proyecto.id 
             )
 
             creados.append({

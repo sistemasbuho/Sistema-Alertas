@@ -11,7 +11,6 @@ from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
-    # Deshabilitamos autenticación y permisos para permitir acceso desde servidor A
     authentication_classes = []
     permission_classes = []
 
