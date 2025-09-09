@@ -134,6 +134,7 @@ class TemplateConfig(BaseModel):
     nombre = models.CharField(max_length=150)
     app_label = models.CharField(max_length=100) 
     model_name = models.CharField(max_length=100)  
+    config_campos = models.JSONField(default=dict, blank=True)
     proyecto = models.ForeignKey(
         "proyectos.Proyecto", 
         on_delete=models.CASCADE, 

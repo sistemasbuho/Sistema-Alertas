@@ -3,8 +3,9 @@ from rest_framework.response import Response
 from rest_framework import generics
 
 from rest_framework import status
-from apps.base.models import TemplateConfig
+from apps.base.models import TemplateConfig,TemplateCampoConfig
 from apps.base.serializers.serializer_templates_mensaje import CampoPlantillaSerializer,PlantillaSerializer
+from django.shortcuts import get_object_or_404
 
 
 class CrearPlantillaAPIView(APIView):
@@ -31,23 +32,34 @@ class ListarPlantillasAPIView(generics.ListAPIView):
 
 
 class CrearCamposPlantillaAPIView(APIView):
-    def post(self, request, plantilla_id):
+    def put(self, request, plantilla_id):
         """
-        Crea múltiples campos asociados a una plantilla ya existente.
+        Crea o actualiza la configuración de los campos de una plantilla.
+        - Si un campo ya existe en `config_campos`, se actualiza (orden/estilo).
+        - Si no existe, se agrega.
         """
-        try:
-            plantilla = TemplateConfig.objects.get(id=plantilla_id)
-        except TemplateConfig.DoesNotExist:
-            return Response({"error": "Plantilla no encontrada"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Pasamos la relación explícita en cada campo
+        plantilla = get_object_or_404(TemplateConfig, id=plantilla_id)
         campos_data = request.data.get("campos", [])
+
+        # Cargamos lo que ya tenga guardado
+        config_actual = plantilla.config_campos or {}
+
         for campo in campos_data:
-            campo["plantilla"] = plantilla.id
+            nombre_campo = campo.get("campo")
+            if not nombre_campo:
+                return Response(
+                    {"error": "Cada campo debe incluir 'campo'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        serializer = CampoPlantillaSerializer(data=campos_data, many=True)
-        if serializer.is_valid():
-            serializer.save(plantilla=plantilla)  # asociamos todos los campos a la plantilla
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Actualizamos o creamos configuración
+            config_actual[nombre_campo] = {
+                "orden": campo.get("orden", config_actual.get(nombre_campo, {}).get("orden")),
+                "estilo": campo.get("estilo", config_actual.get(nombre_campo, {}).get("estilo", {}))
+            }
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Guardamos en la plantilla
+        plantilla.config_campos = config_actual
+        plantilla.save()
+
+        return Response(config_actual, status=status.HTTP_200_OK)

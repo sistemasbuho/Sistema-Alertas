@@ -15,11 +15,20 @@ class PlantillaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TemplateConfig
-        fields = ["id", "nombre", "app_label", "model_name", "proyecto", "campos"]
+        fields = [
+            "id",
+            "nombre",
+            "app_label",
+            "model_name",
+            "proyecto",
+            "campos",
+            "config_campos",  # 👈 nuevo campo agregado
+        ]
 
     def create(self, validated_data):
         campos_data = validated_data.pop("campos", [])
-        plantilla = TemplateConfig.objects.create(**validated_data)
+        config_campos = validated_data.pop("config_campos", {})  # 👈 soporta config_campos
+        plantilla = TemplateConfig.objects.create(**validated_data, config_campos=config_campos)
 
         for campo in campos_data:
             TemplateCampoConfig.objects.create(plantilla=plantilla, **campo)
@@ -28,10 +37,16 @@ class PlantillaSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         campos_data = validated_data.pop("campos", [])
+        config_campos = validated_data.pop("config_campos", None)
 
         # Actualiza los atributos de la plantilla
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        # 👇 si se envía config_campos se actualiza
+        if config_campos is not None:
+            instance.config_campos = config_campos
+
         instance.save()
 
         # Manejo de campos
@@ -53,10 +68,6 @@ class PlantillaSerializer(serializers.ModelSerializer):
         return instance
 
     def to_representation(self, instance):
-        """
-        Muestra campos guardados con estilo,
-        y además los campos del modelo que no tienen configuración aún.
-        """
         rep = super().to_representation(instance)
 
         try:
@@ -64,36 +75,31 @@ class PlantillaSerializer(serializers.ModelSerializer):
         except LookupError:
             return rep  
 
-        # Todos los campos del modelo
+        # todos los campos del modelo
         model_fields = [
             f.name for f in Model._meta.get_fields()
             if f.concrete and not f.auto_created
         ]
 
-        # Campos ya guardados
-        campos_guardados = {c["campo"]: c for c in CampoPlantillaSerializer(instance.campos.all(), many=True).data}
+        # Config ya guardados
+        config_campos = instance.config_campos or {}
 
-        # Mezclamos: primero los guardados, luego los que faltan
-        campos_finales = []
-        orden = 1
-
-        for field_name in model_fields:
-            if field_name in campos_guardados:
-                campo = campos_guardados[field_name]
-            else:
-                campo = {
+        # Campos no configurados
+        campos_no_config = []
+        for idx, field_name in enumerate(model_fields, start=1):
+            if field_name not in config_campos:
+                campos_no_config.append({
                     "id": None,
                     "campo": field_name,
-                    "orden": orden,
+                    "orden": idx,
                     "estilo": {}
-                }
-            campo["orden"] = orden
-            campos_finales.append(campo)
-            orden += 1
+                })
 
-        rep["campos"] = campos_finales
+        # En la respuesta:
+        rep["campos"] = campos_no_config         # solo no configurados
+        rep["config_campos"] = config_campos     # los ya configurados
+
         return rep
-
 
 
 class CampoPlantillaSerializer(serializers.ModelSerializer):
