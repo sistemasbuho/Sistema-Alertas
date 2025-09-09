@@ -161,7 +161,9 @@ class EnviarMensajeAPIView(APIView):
     def post(self, request):
         mensaje = request.data.get("mensaje")
         grupo_id = request.data.get("grupo_id")
-        tipo_alerta = request.data.get("tipo_alerta")  # 👈 medio | redes
+        tipo_alerta = request.data.get("tipo_alerta")  # medio | redes
+        articulo_id = request.data.get("articulo_id")
+        red_social_id = request.data.get("red_social_id")
 
         if not mensaje or not grupo_id or not tipo_alerta:
             return Response(
@@ -180,10 +182,19 @@ class EnviarMensajeAPIView(APIView):
             "no_link_preview": True,
         }
 
-        detalle_envio = DetalleEnvio.objects.create(
-            inicio_envio=timezone.now(),
-            mensaje=mensaje,
-            usuario=request.user if request.user.is_authenticated else None,
+        filtros = {}
+        if tipo_alerta == "medio" and articulo_id:
+            filtros["medio_id"] = articulo_id
+        elif tipo_alerta == "redes" and red_social_id:
+            filtros["red_social_id"] = red_social_id
+
+        detalle_envio, created = DetalleEnvio.objects.update_or_create(
+            **filtros,
+            defaults={
+                "inicio_envio": timezone.now(),
+                "mensaje": mensaje,
+                "usuario": request.user if request.user.is_authenticated else None,
+            },
         )
 
         attempts = 0
@@ -194,24 +205,6 @@ class EnviarMensajeAPIView(APIView):
                 if response.status_code == 200:
                     detalle_envio.fin_envio = timezone.now()
                     detalle_envio.estado_enviado = True
-
-                    if tipo_alerta == "medio":
-                        articulo_id = request.data.get("articulo_id")
-                        if articulo_id:
-                            try:
-                                articulo = Articulo.objects.get(id=articulo_id)
-                                detalle_envio.medio = articulo
-                            except Articulo.DoesNotExist:
-                                pass
-                    elif tipo_alerta == "redes":
-                        red_social_id = request.data.get("red_social_id")
-                        if red_social_id:
-                            try:
-                                red_social = Redes.objects.get(id=red_social_id)
-                                detalle_envio.red_social = red_social
-                            except Redes.DoesNotExist:
-                                pass
-
                     detalle_envio.save()
 
                     return Response(
@@ -258,6 +251,4 @@ class EnviarMensajeAPIView(APIView):
             {"error": "No se pudo realizar el envío"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-
 
