@@ -3,6 +3,7 @@ from django.conf import settings
 from django_currentuser.middleware import get_current_user
 import uuid
 from simple_history.models import HistoricalRecords
+from apps.proyectos.models import Proyecto
 
 
 
@@ -115,6 +116,14 @@ class DetalleEnvio(BaseModel):
         null=True,
         blank=True,
         related_name="detalles_envio"
+    )
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="detalles_envio",
+        null=True,
+        blank=True
     )
 
     history = HistoricalRecords(table_name='detalle_envio_history')

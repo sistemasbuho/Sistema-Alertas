@@ -158,16 +158,27 @@ class EnviarMensajeAPIView(APIView):
     max_retries = 3
     retry_delay = 2
 
+class EnviarMensajeAPIView(APIView):
+    access_key = os.getenv("WHAPI_TOKEN")
+    url_mensaje = "https://gate.whapi.cloud/messages/text"
+    max_retries = 3
+    retry_delay = 2
+
     def post(self, request):
-        mensaje = request.data.get("mensaje")
+        proyecto_id = request.data.get("proyecto_id")
         grupo_id = request.data.get("grupo_id")
         tipo_alerta = request.data.get("tipo_alerta")  # medio | redes
-        articulo_id = request.data.get("articulo_id")
-        red_social_id = request.data.get("red_social_id")
+        alertas = request.data.get("alertas", [])
 
-        if not mensaje or not grupo_id or not tipo_alerta:
+        if not proyecto_id or not grupo_id or not tipo_alerta or not alertas:
             return Response(
-                {"error": "Se requieren los campos 'mensaje', 'grupo_id' y 'tipo_alerta'"},
+                {"error": "Se requieren 'proyecto_id', 'grupo_id', 'tipo_alerta' y 'alertas'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if tipo_alerta not in ["medio", "redes"]:
+            return Response(
+                {"error": "El campo 'tipo_alerta' debe ser 'medio' o 'redes'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -176,43 +187,69 @@ class EnviarMensajeAPIView(APIView):
             "Content-Type": "application/json",
         }
 
-        payload = {
-            "to": grupo_id,
-            "body": mensaje,
-            "no_link_preview": True,
-        }
+        enviados = []
+        no_enviados = []
 
-        filtros = {}
-        if tipo_alerta == "medio" and articulo_id:
-            filtros["medio_id"] = articulo_id
-        elif tipo_alerta == "redes" and red_social_id:
-            filtros["red_social_id"] = red_social_id
+        for alerta in alertas:
+            publicacion_id = alerta.get("publicacion_id")
+            mensaje = alerta.get("mensaje")
 
-        detalle_envio, created = DetalleEnvio.objects.update_or_create(
-            **filtros,
-            defaults={
-                "inicio_envio": timezone.now(),
-                "mensaje": mensaje,
-                "usuario": request.user if request.user.is_authenticated else None,
-            },
-        )
+            if not publicacion_id or not mensaje:
+                no_enviados.append(
+                    {"publicacion_id": publicacion_id, "error": "Faltan datos en la alerta"}
+                )
+                continue
 
-        attempts = 0
-        while attempts < self.max_retries:
-            try:
-                response = requests.post(self.url_mensaje, json=payload, headers=headers)
+            # Definir filtros para update_or_create
+            filtros = {}
+            if tipo_alerta == "medio":
+                filtros["medio_id"] = publicacion_id
+            elif tipo_alerta == "redes":
+                filtros["red_social_id"] = publicacion_id
 
-                if response.status_code == 200:
-                    detalle_envio.fin_envio = timezone.now()
-                    detalle_envio.estado_enviado = True
-                    detalle_envio.save()
+            detalle_envio, _ = DetalleEnvio.objects.update_or_create(
+                **filtros,
+                defaults={
+                    "inicio_envio": timezone.now(),
+                    "mensaje": mensaje,
+                    "usuario": request.user if request.user.is_authenticated else None,
+                },
+            )
 
-                    return Response(
-                        {"success": "Mensaje enviado correctamente"},
-                        status=status.HTTP_200_OK,
-                    )
+            payload = {
+                "to": grupo_id,
+                "body": mensaje,
+                "no_link_preview": True,
+            }
 
-                else:
+            success = False
+            attempts = 0
+            while attempts < self.max_retries and not success:
+                try:
+                    response = requests.post(self.url_mensaje, json=payload, headers=headers)
+
+                    if response.status_code == 200:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = True
+                        detalle_envio.save()
+                        enviados.append(publicacion_id)
+                        success = True
+                    else:
+                        attempts += 1
+                        if attempts < self.max_retries:
+                            time.sleep(self.retry_delay)
+                        else:
+                            detalle_envio.fin_envio = timezone.now()
+                            detalle_envio.estado_enviado = False
+                            detalle_envio.save()
+                            no_enviados.append(
+                                {
+                                    "publicacion_id": publicacion_id,
+                                    "status_code": response.status_code,
+                                    "detalle": response.json(),
+                                }
+                            )
+                except requests.RequestException as e:
                     attempts += 1
                     if attempts < self.max_retries:
                         time.sleep(self.retry_delay)
@@ -220,35 +257,15 @@ class EnviarMensajeAPIView(APIView):
                         detalle_envio.fin_envio = timezone.now()
                         detalle_envio.estado_enviado = False
                         detalle_envio.save()
-
-                        return Response(
-                            {
-                                "error": "No se pudo enviar el mensaje",
-                                "status_code": response.status_code,
-                                "detalle": response.json(),
-                            },
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        no_enviados.append(
+                            {"publicacion_id": publicacion_id, "error": f"Error de conexión: {str(e)}"}
                         )
-            except requests.RequestException as e:
-                attempts += 1
-                if attempts < self.max_retries:
-                    time.sleep(self.retry_delay)
-                else:
-                    detalle_envio.fin_envio = timezone.now()
-                    detalle_envio.estado_enviado = False
-                    detalle_envio.save()
-
-                    return Response(
-                        {"error": f"Error de conexión: {str(e)}"},
-                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    )
-
-        detalle_envio.fin_envio = timezone.now()
-        detalle_envio.estado_enviado = False
-        detalle_envio.save()
 
         return Response(
-            {"error": "No se pudo realizar el envío"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            {
+                "success": f"Se enviaron {len(enviados)} alertas",
+                "enviados": enviados,
+                "no_enviados": no_enviados,
+            },
+            status=status.HTTP_200_OK,
         )
-
