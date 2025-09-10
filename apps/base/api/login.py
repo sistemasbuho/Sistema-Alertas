@@ -79,29 +79,3 @@ class UserValidationGoogle(APIView):
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Retornar credenciales si el usuario que inició sesión con Google está autorizado por un admin a entrar a la plataforma.
-        """
-        serializer = EmailSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
-        jwt_google = serializer.validated_data['jwt_google']
-
-        # Validar el token de Google
-        id_info = self.validate_google_token(jwt_google)
-
-        if id_info is None:
-            return Response({"message": "Token JWT de Google inválido."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Verificar que el email extraído del token coincide con el email enviado
-        if id_info['email'] != email:
-            return Response({"message": "El email del token no coincide."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Comprobar si el usuario está registrado en la base de datos
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'error': 'El correo proporcionado no se encuentra registrado'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Generar los tokens o credenciales necesarias
-        tokens = loginTokenUser(request, user)
-
-        return Response(tokens, status=status.HTTP_200_OK)
