@@ -1,5 +1,5 @@
 from django.urls import path
-from apps.base.api.login import GoogleLoginAPIView
+from apps.base.api.login import UserValidationGoogle
 from apps.base.api.listar_medios import MediosListAPIView,MediosUpdateAPIView
 from apps.base.api.listar_redes import RedesListAPIView,RedesUpdateAPIView
 
@@ -11,7 +11,7 @@ from apps.base.api.formato_mensaje import CrearPlantillaAPIView , ListarPlantill
 
 
 urlpatterns = [
-    path("auth/google/", GoogleLoginAPIView.as_view(), name="google-login"),
+    path("auth/google/", UserValidationGoogle.as_view(), name="google-login"),
     path('redes/importar-redes/', ImportarRedesAPIView.as_view(), name='importar-redes'),
     path('redes/', RedesListAPIView.as_view(), name='redes-list'),
     path("redes/<uuid:pk>/", RedesUpdateAPIView.as_view(), name="redes-update"),
