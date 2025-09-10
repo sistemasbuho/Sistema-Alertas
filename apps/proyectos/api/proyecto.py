@@ -3,16 +3,23 @@ from apps.proyectos.models import Proyecto
 from apps.proyectos.serializers.proyecto_serializer  import ProyectoCreateSerializer,ProyectoUpdateSerializer
 from rest_framework.response import Response
 from rest_framework import generics, status
+from apps.base.api.filtros import PaginacionEstandar
 
 
 class ProyectoAPIView(generics.GenericAPIView):
     queryset = Proyecto.objects.all()
     serializer_class = ProyectoCreateSerializer
     lookup_field = 'id'
+    pagination_class = PaginacionEstandar
 
     def get(self, request, *args, **kwargs):
         proyectos = self.get_queryset()
-        serializer = ProyectoCreateSerializer(proyectos, many=True)
+        page = self.paginate_queryset(proyectos)  
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(proyectos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     # Método para crear un proyecto

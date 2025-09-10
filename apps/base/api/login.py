@@ -68,8 +68,15 @@ class UserValidationGoogle(APIView):
             return None
 
     def post(self, request):
-        """
-        JWT para usuarios de 'Google'
+        print('request.data.get---------------',request.data.get)
+        token = (
+            request.data.get("id_token")
+            or request.data.get("access_token")
+            or request.data.get("token")
+            or request.data.get("credential")  
+        )
+        if not token:
+            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         Retornar credenciales si el usuario que inició sesión con Google está autorizado por un admin a entrar a la plataforma.
         """
