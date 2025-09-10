@@ -78,7 +78,7 @@ class UserValidationGoogle(APIView):
         if not token:
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        Retornar credenciales si el usuario que inició sesión con Google está autorizado por un admin a entrar a la plataforma.
+        # Retornar credenciales si el usuario que inició sesión con Google está autorizado por un admin a entrar a la plataforma.
         """
         serializer = EmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
