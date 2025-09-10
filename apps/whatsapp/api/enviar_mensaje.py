@@ -9,7 +9,7 @@ import requests
 from rest_framework import status
 from django.utils import timezone
 
-from apps.base.models import DetalleEnvio, Articulo, Redes
+from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 from apps.proyectos.models import Proyecto
 
 logger = logging.getLogger(__name__)
@@ -84,10 +84,17 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 "reach": reach
             })
 
+        plantilla_mensaje = {}
+        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+        if template_config:
+            plantilla_mensaje = template_config.config_campos  
+
+
         return Response({
             "procesadas": procesadas,
             "duplicadas": duplicadas,
-            "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas."
+            "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas.",
+            "plantilla_mensaje": plantilla_mensaje
         }, status=200)
 
 
@@ -141,10 +148,16 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
                 "alcance": alcance
             })
 
+        plantilla_mensaje = {}
+        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+        if template_config:
+            plantilla_mensaje = template_config.config_campos  
+
         return Response({
             "procesadas": procesadas,
             "duplicadas": duplicadas,
-            "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas."
+            "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas.",
+            "plantilla_mensaje": plantilla_mensaje
         }, status=200)
 
 
@@ -200,22 +213,42 @@ class EnviarMensajeAPIView(APIView):
                 )
                 continue
 
-            # Definir filtros para update_or_create
-            filtros = {}
-            if tipo_alerta == "medio":
-                filtros["medio_id"] = publicacion_id
-            elif tipo_alerta == "redes":
-                filtros["red_social_id"] = publicacion_id
+            try:
+                # Buscar la publicación asociada al proyecto
+                if tipo_alerta == "medio":
+                    publicacion = Articulo.objects.get(id=publicacion_id, proyecto_id=proyecto_id)
+                    filtros = {"medio": publicacion, "proyecto_id": proyecto_id}
+                else:  # redes
+                    publicacion = Redes.objects.get(id=publicacion_id, proyecto_id=proyecto_id)
+                    filtros = {"red_social": publicacion, "proyecto_id": proyecto_id}
+            except (Articulo.DoesNotExist, Redes.DoesNotExist):
+                no_enviados.append(
+                    {
+                        "publicacion_id": publicacion_id,
+                        "error": f"{tipo_alerta.capitalize()} con ese id no existe en el proyecto",
+                    }
+                )
+                continue
 
+            # Crear o actualizar detalle de envío
             detalle_envio, _ = DetalleEnvio.objects.update_or_create(
                 **filtros,
                 defaults={
                     "inicio_envio": timezone.now(),
                     "mensaje": mensaje,
                     "usuario": request.user if request.user.is_authenticated else None,
+                    "proyecto_id": proyecto_id,
                 },
             )
 
+            # Si ya fue enviado, no lo reenviamos
+            if detalle_envio.estado_enviado:
+                no_enviados.append(
+                    {"publicacion_id": publicacion_id, "error": "Ya fue enviada anteriormente"}
+                )
+                continue
+
+            # Armar payload
             payload = {
                 "to": grupo_id,
                 "body": mensaje,
