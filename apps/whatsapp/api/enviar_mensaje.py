@@ -86,7 +86,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
         for record in alertas:
             url = record.get("url")
             alerta_existente = DetalleEnvio.objects.filter(
-                medio=record.get("id"), estado_enviado=True
+                medio=record.get("id"), estado_enviado=True,proyecto_id=proyecto
             ).first()
 
             if alerta_existente:
@@ -151,9 +151,12 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
 
         for record in alertas:
             url = record.get("url")
-            alerta_existente = Redes.objects.filter(
-                url=url, proyecto=proyecto
+            alerta_existente = DetalleEnvio.objects.filter(
+                red_social_id=record.get("id"), estado_enviado=True,proyecto_id=proyecto
             ).first()
+
+
+            print('alerta_existente',alerta_existente)
 
             if alerta_existente:
                 duplicadas.append({
