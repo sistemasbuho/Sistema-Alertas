@@ -34,6 +34,30 @@ class BaseCapturaAlertasAPIView(APIView):
             return now()
 
 
+def formatear_mensaje(alerta, plantilla):
+    """
+    Genera un mensaje formateado aplicando la plantilla de estilos y orden.
+    Funciona para alertas de medios o redes.
+    """
+    partes = []
+
+    for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get('orden', 0)):
+        valor = alerta.get(campo) or alerta.get('mensaje')  # fallback a 'mensaje'
+        if not valor:
+            continue
+
+        estilo = conf.get('estilo', {})
+        if estilo.get('negrita'):
+            valor = f"*{valor}*"
+        if estilo.get('inclinado'):
+            valor = f"_{valor}_"
+
+        partes.append(valor)
+
+    return "\n".join(partes)
+
+
+
 # -----------------------
 # Medios
 # -----------------------
@@ -50,6 +74,11 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             return Response({"error": "Se requieren 'proyecto_id' y 'alertas'"}, status=400)
 
         proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+        plantilla_mensaje = {}
+        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+        if template_config:
+            plantilla_mensaje = template_config.config_campos  
 
         procesadas = []
         duplicadas = []
@@ -84,11 +113,8 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 "reach": reach
             })
 
-        plantilla_mensaje = {}
-        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
-        if template_config:
-            plantilla_mensaje = template_config.config_campos  
-
+            for alerta in procesadas:
+                alerta["mensaje_formateado"] = formatear_mensaje(alerta, plantilla_mensaje)
 
         return Response({
             "procesadas": procesadas,
@@ -114,6 +140,11 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
             return Response({"error": "Se requieren 'proyecto_id' y 'alertas'"}, status=400)
 
         proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+        
+        plantilla_mensaje = {}
+        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+        if template_config:
+            plantilla_mensaje = template_config.config_campos 
 
         procesadas = []
         duplicadas = []
@@ -148,10 +179,8 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
                 "alcance": alcance
             })
 
-        plantilla_mensaje = {}
-        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
-        if template_config:
-            plantilla_mensaje = template_config.config_campos  
+            for alerta in procesadas:
+                alerta["mensaje_formateado"] = formatear_mensaje(alerta, plantilla_mensaje) 
 
         return Response({
             "procesadas": procesadas,
