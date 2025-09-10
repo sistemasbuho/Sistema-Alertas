@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-))s5$8+bkas5c46*-+c8flpos7k6n83&gw=q@l9&$8#)ikt3xy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "api.alertas.buho.media",'api.monitoreo.buho.media']
+ALLOWED_HOSTS = ["localhost", "sistema.alertas.buho.media", "127.0.0.1", "api.alertas.buho.media",'api.monitoreo.buho.media']
 
 
 # Application definition
@@ -126,6 +126,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://sistema.alertas.buho.media",
+    "http://sistema.alertas.buho.media"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
