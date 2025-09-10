@@ -4,6 +4,7 @@ from apps.proyectos.serializers.proyecto_serializer  import ProyectoCreateSerial
 from rest_framework.response import Response
 from rest_framework import generics, status
 from apps.base.api.filtros import PaginacionEstandar
+from apps.proyectos.api.filtros import ProyectoFilter
 
 
 class ProyectoAPIView(generics.GenericAPIView):
@@ -11,10 +12,11 @@ class ProyectoAPIView(generics.GenericAPIView):
     serializer_class = ProyectoCreateSerializer
     lookup_field = 'id'
     pagination_class = PaginacionEstandar
+    filterset_class = ProyectoFilter
 
     def get(self, request, *args, **kwargs):
-        proyectos = self.get_queryset()
-        page = self.paginate_queryset(proyectos)  
+        proyectos = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(proyectos)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)

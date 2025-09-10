@@ -45,6 +45,6 @@ class DetalleEnvioFilter(django_filters.FilterSet):
         ]
 
 class PaginacionEstandar(PageNumberPagination):
-    page_size = 50  # cantidad por defecto
+    page_size = 50  
     page_size_query_param = "page_size"
     max_page_size = 100
