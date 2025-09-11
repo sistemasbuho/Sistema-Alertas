@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import generics, status
 from apps.base.api.filtros import PaginacionEstandar
 from apps.proyectos.api.filtros import ProyectoFilter
+from django_filters.rest_framework import DjangoFilterBackend
 import os
 
 
@@ -16,6 +17,7 @@ class ProyectoAPIView(generics.GenericAPIView):
     lookup_field = 'id'
     pagination_class = PaginacionEstandar
     filterset_class = ProyectoFilter
+    filter_backends = [DjangoFilterBackend] 
 
     def _validar_token(self, request):
         auth_header = request.headers.get("Authorization")
