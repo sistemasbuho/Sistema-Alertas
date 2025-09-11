@@ -66,16 +66,3 @@ class UserValidationGoogle(APIView):
             # Si el token es inválido o no puede ser validado
             print(f"Error al validar el token: {e}")
             return None
-
-    def post(self, request):
-        print('request.data.get---------------',request.data.get)
-        token = (
-            request.data.get("id_token")
-            or request.data.get("access_token")
-            or request.data.get("token")
-            or request.data.get("credential")  
-        )
-        if not token:
-            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Retornar credenciales si el usuario que inició sesión con Google está autorizado por un admin a entrar a la plataforma.
