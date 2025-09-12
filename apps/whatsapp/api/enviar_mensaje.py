@@ -86,7 +86,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
         for record in alertas:
             url = record.get("url")
             alerta_existente = DetalleEnvio.objects.filter(
-                medio=record.get("id"), estado_enviado=True,proyecto_id=proyecto
+                medio=record.get("id"), estado_enviado=True, proyecto_id=proyecto
             ).first()
 
             if alerta_existente:
@@ -104,7 +104,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             reach = record.get("reach")
 
             procesadas.append({
-                "id" : record.get("id"),
+                "id": record.get("id"),
                 "titulo": titulo,
                 "url": url,
                 "mensaje": mensaje,
@@ -120,7 +120,8 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             "procesadas": procesadas,
             "duplicadas": duplicadas,
             "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas.",
-            "plantilla_mensaje": plantilla_mensaje
+            "plantilla_mensaje": plantilla_mensaje,
+            "codigo_acceso": proyecto.codigo_acceso  
         }, status=200)
 
 
@@ -189,7 +190,8 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
             "procesadas": procesadas,
             "duplicadas": duplicadas,
             "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas.",
-            "plantilla_mensaje": plantilla_mensaje
+            "plantilla_mensaje": plantilla_mensaje,
+            "codigo_acceso": proyecto.codigo_acceso  
         }, status=200)
 
 

@@ -6,7 +6,7 @@ from apps.base.api.listar_redes import RedesListAPIView,RedesUpdateAPIView
 from apps.base.api.importar_medios import ImportarArticuloAPIView
 from apps.base.api.importar_redes import ImportarRedesAPIView
 from apps.base.api.formato_mensaje import CrearPlantillaAPIView , ListarPlantillasAPIView,CrearCamposPlantillaAPIView
-from apps.base.api.historial import HistorialEnviosListAPIView,HistorialEnviosDetailAPIView
+from apps.base.api.historial import HistorialEnviosListAPIView,HistorialEnviosDetailAPIView,ExportarHistorialExcelView
 
 
 
@@ -27,5 +27,7 @@ urlpatterns = [
 
     path("historial-envios/",HistorialEnviosListAPIView.as_view(),name="historial-envios-list"),
     path("historial-envios/<uuid:pk>/",HistorialEnviosDetailAPIView.as_view(),name="historial-envios-detail"),
+    path("exportar-historial/", ExportarHistorialExcelView.as_view(), name="exportar-historial"),
+
 
 ]

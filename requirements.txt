@@ -16,5 +16,5 @@ django-simple-history
 django-cors-headers
 django-filter
 requests
-
+openpyxl
 
