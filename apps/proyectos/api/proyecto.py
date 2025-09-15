@@ -6,10 +6,29 @@ from rest_framework import generics, status
 from apps.base.api.filtros import PaginacionEstandar
 from apps.proyectos.api.filtros import ProyectoFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from typing import Optional
 import os
 
 
 API_TOKEN = os.getenv("TOKEN_PROYECTO")
+WHATSAPP_ACCESS_KEY = os.getenv("WHAPI_TOKEN")
+
+def get_grupo_id(grupo_whatsapp: str) -> Optional[str]:
+    """
+    Obtiene el ID de un grupo de WhatsApp dado su nombre.
+    """
+    url_grupos = "https://gate.whapi.cloud/groups"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_KEY}",
+        "Content-Type": "application/json"
+    }
+    response = requests.get(url_grupos, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        grupos = [grupo for grupo in data['groups'] if grupo['name'] == grupo_whatsapp]
+        return grupos[0]['id'] if grupos else None
+    return None
+
 
 class ProyectoAPIView(generics.GenericAPIView):
     queryset = Proyecto.objects.all()
@@ -42,25 +61,52 @@ class ProyectoAPIView(generics.GenericAPIView):
         serializer = self.get_serializer(proyectos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    # Método para crear un proyecto
     def post(self, request, *args, **kwargs):
         serializer = ProyectoCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # Método para actualizar un proyecto existente
+        grupo_nombre = serializer.validated_data.get("codigo_acceso")  # asumiendo que aquí llega el nombre
+        grupo_id = get_grupo_id(grupo_nombre) if grupo_nombre else None
+
+        if grupo_nombre and not grupo_id:
+            return Response(
+                {"error": f"No se encontró un grupo de WhatsApp con el nombre '{grupo_nombre}'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proyecto = serializer.save(codigo_acceso=grupo_id if grupo_id else None)
+        return Response(ProyectoCreateSerializer(proyecto).data, status=status.HTTP_201_CREATED)
+
     def put(self, request, *args, **kwargs):
         proyecto = self.get_object()
         serializer = ProyectoUpdateSerializer(proyecto, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # Método para actualización parcial (PATCH)
+        grupo_nombre = serializer.validated_data.get("codigo_acceso")
+        grupo_id = get_grupo_id(grupo_nombre) if grupo_nombre else None
+
+        if grupo_nombre and not grupo_id:
+            return Response(
+                {"error": f"No se encontró un grupo de WhatsApp con el nombre '{grupo_nombre}'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proyecto = serializer.save(codigo_acceso=grupo_id if grupo_id else proyecto.codigo_acceso)
+        return Response(ProyectoUpdateSerializer(proyecto).data, status=status.HTTP_200_OK)
+
     def patch(self, request, *args, **kwargs):
         proyecto = self.get_object()
         serializer = ProyectoUpdateSerializer(proyecto, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        grupo_nombre = serializer.validated_data.get("codigo_acceso")
+        grupo_id = get_grupo_id(grupo_nombre) if grupo_nombre else None
+
+        if grupo_nombre and not grupo_id:
+            return Response(
+                {"error": f"No se encontró un grupo de WhatsApp con el nombre '{grupo_nombre}'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proyecto = serializer.save(codigo_acceso=grupo_id if grupo_id else proyecto.codigo_acceso)
+        return Response(ProyectoUpdateSerializer(proyecto).data, status=status.HTTP_200_OK)

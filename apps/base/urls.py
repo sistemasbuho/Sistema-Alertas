@@ -1,5 +1,4 @@
 from django.urls import path
-from apps.base.api.login import UserValidationGoogle
 from apps.base.api.listar_medios import MediosListAPIView,MediosUpdateAPIView
 from apps.base.api.listar_redes import RedesListAPIView,RedesUpdateAPIView
 
@@ -8,11 +7,21 @@ from apps.base.api.importar_redes import ImportarRedesAPIView
 from apps.base.api.formato_mensaje import CrearPlantillaAPIView , ListarPlantillasAPIView,CrearCamposPlantillaAPIView
 from apps.base.api.historial import HistorialEnviosListAPIView,HistorialEnviosDetailAPIView,ExportarHistorialExcelView
 
+from apps.base.api.login import (
+    UserValidationGoogle,
+    EmailTokenObtainPairView,
+    EmailTokenRefreshView,
+)
+
 
 
 
 urlpatterns = [
     path("auth/google/", UserValidationGoogle.as_view(), name="google-login"),
+    path("token/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("token/refresh/", EmailTokenRefreshView.as_view(), name="token_refresh"),
+
+
     path('redes/importar-redes/', ImportarRedesAPIView.as_view(), name='importar-redes'),
     path('redes/', RedesListAPIView.as_view(), name='redes-list'),
     path("redes/<uuid:pk>/", RedesUpdateAPIView.as_view(), name="redes-update"),

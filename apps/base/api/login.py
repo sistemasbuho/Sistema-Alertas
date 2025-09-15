@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 # from social_django.utils import load_strategy, load_backend
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import login
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
@@ -11,6 +13,8 @@ from rest_framework import viewsets, permissions, status, filters
 import google.auth.transport.requests
 import google.oauth2.id_token
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+
 
 # User = get_user_model()
 
@@ -97,3 +101,35 @@ class UserValidationGoogle(APIView):
         tokens = loginTokenUser(request, user)
 
         return Response(tokens, status=status.HTTP_200_OK)
+
+
+class EmailTokenObtainPairSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        credentials = {
+            'username': attrs.get("email"),  # OJO: en tu modelo username=email
+            'password': attrs.get("password"),
+        }
+
+        user = authenticate(**credentials)
+
+        if user is None or not user.is_active:
+            raise serializers.ValidationError("Credenciales inválidas o usuario inactivo")
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user_id": user.id,
+            "email": user.email,
+        }
+
+class EmailTokenObtainPairView(TokenObtainPairView):
+    serializer_class = EmailTokenObtainPairSerializer
+
+
+class EmailTokenRefreshView(TokenRefreshView):
+    pass
