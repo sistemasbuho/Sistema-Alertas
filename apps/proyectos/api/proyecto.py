@@ -6,6 +6,8 @@ from rest_framework import generics, status
 from apps.base.api.filtros import PaginacionEstandar
 from apps.proyectos.api.filtros import ProyectoFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAuthenticated
+
 from typing import Optional
 import os
 import requests
@@ -32,6 +34,7 @@ def get_grupo_id(grupo_whatsapp: str) -> Optional[str]:
 
 
 class ProyectoAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = Proyecto.objects.all()
     serializer_class = ProyectoCreateSerializer
     lookup_field = 'id'

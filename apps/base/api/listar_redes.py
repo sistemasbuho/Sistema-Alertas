@@ -4,8 +4,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.base.serializers.serializer_redes import RedesSerializer
 from apps.base.api.filtros import RedesFilter
 from apps.base.api.filtros import PaginacionEstandar
+from rest_framework.permissions import IsAuthenticated
+
 
 class RedesListAPIView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = Redes.objects.all()
     serializer_class = RedesSerializer
     filter_backends = [DjangoFilterBackend]
@@ -13,6 +16,7 @@ class RedesListAPIView(generics.ListAPIView):
     pagination_class = PaginacionEstandar
 
 class RedesUpdateAPIView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = Redes.objects.all()
     serializer_class = RedesSerializer
     lookup_field = "pk"  # usa la PK (UUID o ID) para identificar el objeto

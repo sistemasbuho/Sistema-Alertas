@@ -11,6 +11,8 @@ from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
 from rest_framework.filters import SearchFilter
 from django.utils.encoding import escape_uri_path
+from rest_framework.permissions import IsAuthenticated
+
 
 
 
@@ -19,6 +21,7 @@ class HistorialEnviosListAPIView(generics.ListAPIView):
     """
     Lista de historial de envíos con filtros.
     """
+    permission_classes = [IsAuthenticated]
     serializer_class = DetalleEnvioSerializer
     queryset = DetalleEnvio.objects.select_related("usuario", "proyecto", "red_social")
 
@@ -41,6 +44,7 @@ class HistorialEnviosDetailAPIView(generics.RetrieveAPIView):
     """
     Detalle de un registro de envío.
     """
+    permission_classes = [IsAuthenticated]
     serializer_class = DetalleEnvioSerializer
     queryset = DetalleEnvio.objects.select_related("usuario", "proyecto", "red_social")
     lookup_field = "pk"
