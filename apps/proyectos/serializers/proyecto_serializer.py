@@ -1,7 +1,16 @@
 from rest_framework import serializers
 from apps.proyectos.models import Proyecto
+from django.conf import settings
+import requests
+import os
+
+WHATSAPP_ACCESS_KEY = os.getenv("WHAPI_TOKEN")
+
+
 
 class ProyectoCreateSerializer(serializers.ModelSerializer):
+    grupo_nombre = serializers.SerializerMethodField(read_only=True)  # 👈 Campo calculado
+
     class Meta:
         model = Proyecto
         fields = [
@@ -9,6 +18,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             'nombre',
             'proveedor',
             'codigo_acceso',
+            'grupo_nombre',
             'estado',
             'tipo_envio',
             'tipo_alerta',
@@ -17,7 +27,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             'created_at',
             'modified_at',
         ]
-        read_only_fields = ['id', 'created_at', 'modified_at']
+        read_only_fields = ['id', 'created_at', 'modified_at', 'grupo_nombre']
 
     def validate_nombre(self, value):
         """
@@ -27,7 +37,31 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ya existe un proyecto con este nombre.")
         return value
 
+    def get_grupo_nombre(self, obj):
+        """
+        Obtiene el nombre del grupo desde la API de WhatsApp
+        usando el codigo_acceso (ID del grupo).
+        """
+        if not obj.codigo_acceso:
+            return None
+
+        url_grupos = "https://gate.whapi.cloud/groups"
+        headers = {
+            "Authorization": f"Bearer {WHATSAPP_ACCESS_KEY}",
+            "Content-Type": "application/json"
+        }
+        response = requests.get(url_grupos, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            grupo = next((g for g in data['groups'] if g['id'] == obj.codigo_acceso), None)
+            return grupo['name'] if grupo else None
+
+        return None
+
+
 class ProyectoUpdateSerializer(serializers.ModelSerializer):
+    grupo_nombre = serializers.SerializerMethodField(read_only=True)  # 👈 Campo calculado
+
     class Meta:
         model = Proyecto
         fields = [
@@ -35,6 +69,7 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             'nombre',
             'proveedor',
             'codigo_acceso',
+            'grupo_nombre',
             'estado',
             'tipo_envio',
             'tipo_alerta',
@@ -43,7 +78,7 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             'created_at',
             'modified_at',
         ]
-        read_only_fields = ['id', 'created_at', 'modified_at']
+        read_only_fields = ['id', 'created_at', 'modified_at', 'grupo_nombre']
 
     def validate_nombre(self, value):
         """
@@ -52,11 +87,9 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
         """
         proyecto_actual = getattr(self, 'instance', None)
         if proyecto_actual:
-            # Solo buscar duplicados entre otros proyectos
             if Proyecto.objects.exclude(pk=proyecto_actual.pk).filter(nombre=value).exists():
                 raise serializers.ValidationError("Ya existe un proyecto con este nombre.")
         else:
-            # En caso de que se use sin instancia (teórico)
             if Proyecto.objects.filter(nombre=value).exists():
                 raise serializers.ValidationError("Ya existe un proyecto con este nombre.")
         return value
@@ -69,3 +102,24 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+    def get_grupo_nombre(self, obj):
+        """
+        Obtiene el nombre del grupo desde la API de WhatsApp
+        usando el codigo_acceso (ID del grupo).
+        """
+        if not obj.codigo_acceso:
+            return None
+
+        url_grupos = "https://gate.whapi.cloud/groups"
+        headers = {
+            "Authorization": f"Bearer {WHATSAPP_ACCESS_KEY}",
+            "Content-Type": "application/json"
+        }
+        response = requests.get(url_grupos, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            grupo = next((g for g in data['groups'] if g['id'] == obj.codigo_acceso), None)
+            return grupo['name'] if grupo else None
+
+        return None

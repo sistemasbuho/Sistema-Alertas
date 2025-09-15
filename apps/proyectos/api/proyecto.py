@@ -8,6 +8,7 @@ from apps.proyectos.api.filtros import ProyectoFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from typing import Optional
 import os
+import requests
 
 
 API_TOKEN = os.getenv("TOKEN_PROYECTO")
