@@ -9,11 +9,23 @@ from rest_framework.permissions import IsAuthenticated
 
 class RedesListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Redes.objects.all()
     serializer_class = RedesSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = RedesFilter
     pagination_class = PaginacionEstandar
+
+    def get_queryset(self):
+
+        all_param = self.request.query_params.get("all", "false").lower()
+        queryset = (
+            Redes.objects.select_related("proyecto")
+            .prefetch_related("detalles_envio")
+        )
+
+        if all_param == "true":
+            return queryset
+
+        return queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
 class RedesUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]

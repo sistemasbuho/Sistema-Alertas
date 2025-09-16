@@ -6,19 +6,24 @@ from apps.base.api.filtros import MediosFilter
 from apps.base.api.filtros import PaginacionEstandar
 from rest_framework.permissions import IsAuthenticated
 
-
 class MediosListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Articulo.objects.all()
     serializer_class = MediosSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = MediosFilter
     pagination_class = PaginacionEstandar
 
     def get_queryset(self):
-        queryset = Articulo.objects.all()
-        queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
-        return queryset
+        all_param = self.request.query_params.get("all", "false").lower()
+
+        queryset = (
+            Articulo.objects.select_related("proyecto")
+            .prefetch_related("detalles_envio")
+        )
+        if all_param == "true":
+            return queryset
+
+        return queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
 class MediosUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
