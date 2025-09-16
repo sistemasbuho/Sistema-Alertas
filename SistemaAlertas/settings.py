@@ -144,7 +144,6 @@ from datetime import timedelta
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-print(os.getenv('NAME_DB'))
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -228,3 +227,7 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser'
     ),
 }
+
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = None 
