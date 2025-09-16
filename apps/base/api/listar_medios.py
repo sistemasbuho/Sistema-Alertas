@@ -14,8 +14,11 @@ class MediosListAPIView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend]
     filterset_class = MediosFilter
     pagination_class = PaginacionEstandar
-    
 
+    def get_queryset(self):
+        queryset = Articulo.objects.all()
+        queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
+        return queryset
 
 class MediosUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
