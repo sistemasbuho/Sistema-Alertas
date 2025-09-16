@@ -229,5 +229,9 @@ REST_FRAMEWORK = {
 }
 
 
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # No se borra al cerrar navegador
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 365 * 100  # 100 años
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=365*100),   # prácticamente infinito
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=365*100),  # lo mismo para refresh
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+}
