@@ -12,30 +12,21 @@ from django.http import HttpResponse
 from rest_framework.filters import SearchFilter
 from django.utils.encoding import escape_uri_path
 from rest_framework.permissions import IsAuthenticated
-
+from rest_framework import filters
 
 
 
 
 class HistorialEnviosListAPIView(generics.ListAPIView):
     """
-    Lista de historial de envíos con filtros.
+    Lista de historial de envíos con filtros usando django_filters.
     """
     permission_classes = [IsAuthenticated]
     serializer_class = DetalleEnvioSerializer
     queryset = DetalleEnvio.objects.select_related("usuario", "proyecto", "red_social")
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = {
-        "usuario": ["exact"],
-        "proyecto": ["exact"],
-        "estado_enviado": ["exact"],
-        "created_at": ["gte", "lte"],       
-        "inicio_envio": ["gte", "lte"],     
-        "fin_envio": ["gte", "lte"],       
-        "medio__url": ["exact", "icontains"],
-        "red_social__red_social__nombre": ["icontains"],
-    }
+    filterset_class = DetalleEnvioFilter
     search_fields = ["mensaje", "medio__url", "red_social__url"]
 
     pagination_class = PaginacionEstandar

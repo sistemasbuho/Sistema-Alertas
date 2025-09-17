@@ -34,21 +34,32 @@ class MediosFilter(django_filters.FilterSet):
 
 
 class DetalleEnvioFilter(django_filters.FilterSet):
-    url = django_filters.CharFilter(field_name="medio__url", lookup_expr="exact")
-    url_coincidencia = django_filters.CharFilter(field_name="medio__url", lookup_expr="icontains")
-    fecha_creacion_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
-    fecha_creacion_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
-    fecha_envio_desde = django_filters.DateTimeFilter(field_name="inicio_envio", lookup_expr="gte")
-    fecha_envio_hasta = django_filters.DateTimeFilter(field_name="fin_envio", lookup_expr="lte")
+    usuario_nombre = django_filters.CharFilter(field_name="usuario__username", lookup_expr="icontains")
+    proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
+    estado_enviado = django_filters.CharFilter(field_name="estado_enviado", lookup_expr="exact")
+    created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
+    created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
+    inicio_envio_desde = django_filters.DateTimeFilter(field_name="inicio_envio", lookup_expr="gte")
+    fin_envio_hasta = django_filters.DateTimeFilter(field_name="fin_envio", lookup_expr="lte")
+    medio_url = django_filters.CharFilter(field_name="medio__url", lookup_expr="exact")
+    medio_url_coincide = django_filters.CharFilter(field_name="medio__url", lookup_expr="icontains")
+    red_social_nombre = django_filters.CharFilter(field_name="red_social__red_social__nombre", lookup_expr="icontains")
 
     class Meta:
         model = DetalleEnvio
         fields = [
-            "usuario",
-            "proyecto",
+            "usuario_nombre",
+            "proyecto_nombre",
             "estado_enviado",
-            "red_social",
+            "created_at_desde",
+            "created_at_hasta",
+            "inicio_envio_desde",
+            "fin_envio_hasta",
+            "medio_url",
+            "medio_url_coincide",
+            "red_social_nombre",
         ]
+
 
 class PaginacionEstandar(PageNumberPagination):
     page_size = 50  
