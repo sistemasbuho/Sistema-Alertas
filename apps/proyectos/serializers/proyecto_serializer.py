@@ -3,7 +3,7 @@ from apps.proyectos.models import Proyecto
 
 
 class ProyectoCreateSerializer(serializers.ModelSerializer):
-    grupo_nombre = serializers.CharField(read_only=True)  # 👉 ya no hace request al API en GET
+    # grupo_nombre = serializers.CharField(read_only=True) 
 
     class Meta:
         model = Proyecto
@@ -12,7 +12,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             'nombre',
             'proveedor',
             'codigo_acceso',
-            'grupo_nombre',
+            'nombre_grupo',
             'estado',
             'tipo_envio',
             'tipo_alerta',
@@ -21,7 +21,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             'created_at',
             'modified_at',
         ]
-        read_only_fields = ['id', 'created_at', 'modified_at', 'grupo_nombre']
+        read_only_fields = ['id', 'created_at', 'modified_at']
 
     def validate_nombre(self, value):
         if Proyecto.objects.filter(nombre=value).exists():
@@ -30,7 +30,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
 
 
 class ProyectoUpdateSerializer(serializers.ModelSerializer):
-    grupo_nombre = serializers.CharField(read_only=True)  # 👉 ya no hace request al API en GET
+    # grupo_nombre = serializers.CharField(read_only=True) 
 
     class Meta:
         model = Proyecto
@@ -39,7 +39,7 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             'nombre',
             'proveedor',
             'codigo_acceso',
-            'grupo_nombre',
+            'nombre_grupo',
             'estado',
             'tipo_envio',
             'tipo_alerta',
@@ -48,7 +48,7 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             'created_at',
             'modified_at',
         ]
-        read_only_fields = ['id', 'created_at', 'modified_at', 'grupo_nombre']
+        read_only_fields = ['id', 'created_at', 'modified_at']
 
     def validate_nombre(self, value):
         proyecto_actual = getattr(self, 'instance', None)

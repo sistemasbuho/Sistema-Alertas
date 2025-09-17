@@ -77,7 +77,7 @@ class ProyectoAPIView(generics.GenericAPIView):
 
         proyecto = serializer.save(
             codigo_acceso=grupo_id if grupo_id else None,
-            grupo_nombre=grupo_nombre if grupo_id else None
+            nombre_grupo=grupo_nombre if grupo_id else None
         )
         return Response(ProyectoCreateSerializer(proyecto).data, status=status.HTTP_201_CREATED)
 

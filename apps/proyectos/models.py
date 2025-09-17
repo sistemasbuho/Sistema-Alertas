@@ -56,6 +56,14 @@ class Proyecto(models.Model):
         help_text="Código único para acceder al proyecto"
     )
     
+    nombre_grupo = models.CharField(
+        'Nombre del nombre_grupo', 
+        max_length=500, 
+        help_text="Nombre del grupo",
+        blank=True, 
+        null=True,
+    )
+
     estado = models.CharField(
         'Estado', 
         max_length=20, 
