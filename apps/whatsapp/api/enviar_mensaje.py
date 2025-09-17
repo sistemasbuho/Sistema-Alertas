@@ -371,6 +371,7 @@ class EnviarMensajeAPIView(APIView):
 
         for alerta in alertas:
             alerta_id = alerta.get("id")
+            alerta_id = alerta.get("url")
             mensaje_original = alerta.get("contenido", "")
             titulo = alerta.get("titulo", "")
             autor = alerta.get("autor", "")
@@ -386,6 +387,7 @@ class EnviarMensajeAPIView(APIView):
                 continue
 
             alerta_data = {
+                "url" : url,
                 "titulo": titulo,
                 "contenido": mensaje_original,
                 "autor": autor,
