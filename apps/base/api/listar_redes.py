@@ -44,13 +44,12 @@ class RedesListAPIView(generics.ListAPIView):
 
             red_social_name = red.red_social.nombre.lower()
             for detalle in red.detalles_envio.all():
+                mensaje = detalle.mensaje or ""  # si es None, usar string vacío
                 if red_social_name == "twitter":
-                    detalle.qt = "Sí" if "QT" in detalle.mensaje or "Repost" in detalle.mensaje else "No"
-                    detalle.mensaje = obtener_contenido_twitter(detalle.mensaje, "twitter")
+                    detalle.qt = "Sí" if "QT" in mensaje or "Repost" in mensaje else "No"
+                    detalle.mensaje = obtener_contenido_twitter(mensaje, "twitter")
                 else:
                     detalle.qt = "No"
-
-        return queryset
 
 class RedesUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
