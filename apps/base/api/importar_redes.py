@@ -74,6 +74,7 @@ class ImportarRedesAPIView(APIView):
 
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
+                estado_revisado=False,
                 red_social=red,
                 proyecto_id=proyecto.id 
             )
@@ -92,3 +93,25 @@ class ImportarRedesAPIView(APIView):
             },
             status=201 if creados else 400
         )
+
+
+def obtener_contenido_twitter(texto, red_social):
+    """
+    Devuelve solo la parte del texto antes de QT/Repost si es Twitter.
+    """
+    if red_social.lower() == "twitter":
+        # Buscamos las posiciones de 'QT' o 'Repost'
+        qt_index = texto.find("QT")
+        repost_index = texto.find("Repost")
+
+        indices = [i for i in [qt_index, repost_index] if i != -1]
+
+        if indices:
+            # Tomamos la posición más cercana al inicio
+            corte = min(indices)
+            return texto[:corte].strip()
+        else:
+            return texto.strip()
+    else:
+        # Para otras redes sociales, devolvemos todo
+        return texto.strip()
