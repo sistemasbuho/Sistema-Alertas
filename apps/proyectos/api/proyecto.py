@@ -6,6 +6,8 @@ from apps.proyectos.serializers.proyecto_serializer import ProyectoCreateSeriali
 from apps.base.api.filtros import PaginacionEstandar
 from apps.proyectos.api.filtros import ProyectoFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.views import APIView
+from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 
 from typing import Optional
 import os
@@ -116,3 +118,19 @@ class ProyectoAPIView(generics.GenericAPIView):
             proyecto = serializer.save()
 
         return Response(ProyectoUpdateSerializer(proyecto).data, status=status.HTTP_200_OK)
+
+
+
+class PlantillaProyectoAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, proyecto_id):
+        """
+        Retorna la plantilla (config_campos) del proyecto indicado.
+        """
+        plantilla = {}
+        template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
+        if template_config:
+            plantilla = template_config.config_campos
+
+        return Response({"proyecto_id": proyecto_id, "plantilla": plantilla})

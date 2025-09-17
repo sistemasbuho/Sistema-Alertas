@@ -25,21 +25,7 @@ class MediosListAPIView(generics.ListAPIView):
 
         return queryset.filter(detalles_envio__estado_enviado=False).distinct()
     
-    def get_serializer_context(self):
-        """
-        Pasa la plantilla al serializer para que cada registro pueda formatear su mensaje.
-        """
-        context = super().get_serializer_context()
-        proyecto_id = self.request.query_params.get("proyecto_id")
-        plantilla_mensaje = {}
 
-        if proyecto_id:
-            template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
-            if template_config:
-                plantilla_mensaje = template_config.config_campos
-
-        context["plantilla"] = plantilla_mensaje
-        return context
 
 class MediosUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
