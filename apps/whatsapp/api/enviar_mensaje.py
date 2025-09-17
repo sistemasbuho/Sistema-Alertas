@@ -376,6 +376,9 @@ class EnviarMensajeAPIView(APIView):
             autor = alerta.get("autor", "")
             fecha = alerta.get("fecha", "")
             reach = alerta.get("reach", "")
+            engagement = alerta.get("engagement", "")
+
+
 
 
             if not alerta_id:
@@ -387,7 +390,8 @@ class EnviarMensajeAPIView(APIView):
                 "contenido": mensaje_original,
                 "autor": autor,
                 "fecha_publicacion": fecha,
-                "reach" : reach
+                "reach" : reach,
+                "engagement" :engagement
 
             }
             mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
