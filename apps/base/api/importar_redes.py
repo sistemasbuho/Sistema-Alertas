@@ -9,9 +9,9 @@ class ImportarRedesAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        origin = request.headers.get("X-Custom-Domain")
-        if origin != "https://api.monitoreo.buho.media/":
-            return Response({"error": "Dominio no autorizado"}, status=403)
+        # origin = request.headers.get("X-Custom-Domain")
+        # if origin != "https://api.monitoreo.buho.media/":
+        #     return Response({"error": "Dominio no autorizado"}, status=403)
 
 
         proyecto_id = request.data.get("proyecto_id")
@@ -95,23 +95,3 @@ class ImportarRedesAPIView(APIView):
         )
 
 
-def obtener_contenido_twitter(texto, red_social):
-    """
-    Devuelve solo la parte del texto antes de QT/Repost si es Twitter.
-    """
-    if red_social.lower() == "twitter":
-        # Buscamos las posiciones de 'QT' o 'Repost'
-        qt_index = texto.find("QT")
-        repost_index = texto.find("Repost")
-
-        indices = [i for i in [qt_index, repost_index] if i != -1]
-
-        if indices:
-            # Tomamos la posición más cercana al inicio
-            corte = min(indices)
-            return texto[:corte].strip()
-        else:
-            return texto.strip()
-    else:
-        # Para otras redes sociales, devolvemos todo
-        return texto.strip()
