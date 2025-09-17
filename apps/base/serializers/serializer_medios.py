@@ -6,13 +6,21 @@ from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 class MediosSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
     estado_revisado = serializers.SerializerMethodField()
+    proyecto_keywords = serializers.SerializerMethodField()
 
     class Meta:
         model = Articulo
         fields = "__all__" 
+        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords']
+
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
+
+    def get_proyecto_keywords(self, obj):
+        if obj.proyecto and obj.proyecto.keywords:
+            return [kw.strip() for kw in obj.proyecto.keywords.split(",") if kw.strip()]
+        return []
 
     def get_estado_revisado(self, obj):
         detalles = getattr(obj, "detalles_envio", None)

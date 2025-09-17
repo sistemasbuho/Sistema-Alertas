@@ -5,13 +5,23 @@ from apps.base.models import Redes
 class RedesSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
     estado_revisado = serializers.SerializerMethodField()
+    proyecto_keywords = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Redes
         fields = "__all__"
+        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords']
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
+
+
+    def get_proyecto_keywords(self, obj):
+        if obj.proyecto and obj.proyecto.keywords:
+            # Devolver como lista (separadas por coma)
+            return [kw.strip() for kw in obj.proyecto.keywords.split(",") if kw.strip()]
+        return []  
 
     def get_estado_revisado(self, obj):
         detalles = getattr(obj, "detalles_envio", None)
