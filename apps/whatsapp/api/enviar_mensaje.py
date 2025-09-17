@@ -264,6 +264,59 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
             "codigo_acceso": proyecto.codigo_acceso  
         }, status=200)
 
+# -----------------------
+# Nota revisada
+# -----------------------
+class MarcarRevisadoAPIView(APIView):
+    """
+    Marca como revisadas las alertas enviadas, según su tipo y sus IDs.
+    """
+
+    def post(self, request):
+        tipo_alerta = request.data.get("tipo_alerta")  # medio | redes
+        alertas = request.data.get("alertas", [])
+
+        if not tipo_alerta or not alertas:
+            return Response(
+                {"error": "Se requieren 'tipo_alerta' y 'alertas'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if tipo_alerta not in ["medios", "redes"]:
+            return Response(
+                {"error": "El campo 'tipo_alerta' debe ser 'medio' o 'redes'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        actualizados = []
+        no_encontrados = []
+
+        for alerta in alertas:
+            alerta_id = alerta.get("id")
+            if not alerta_id:
+                no_encontrados.append({"id": None, "error": "Falta ID de alerta"})
+                continue
+
+            filtros = {}
+            if tipo_alerta == "medios":
+                filtros["medio_id"] = alerta_id
+            else:  
+                filtros["red_social_id"] = alerta_id
+
+            detalle_qs = DetalleEnvio.objects.filter(**filtros)
+            if detalle_qs.exists():
+                detalle_qs.update(estado_revisado=True, updated_at=timezone.now())
+                actualizados.append(alerta_id)
+            else:
+                no_encontrados.append({"id": alerta_id, "error": "No se encontró la alerta"})
+
+        return Response(
+            {
+                "actualizados": actualizados,
+                "no_encontrados": no_encontrados,
+            },
+            status=status.HTTP_200_OK
+        )
 
 # -----------------------
 # WHAPI
@@ -322,6 +375,8 @@ class EnviarMensajeAPIView(APIView):
             titulo = alerta.get("titulo", "")
             autor = alerta.get("autor", "")
             fecha = alerta.get("fecha", "")
+            reach = alerta.get("reach", "")
+
 
             if not alerta_id:
                 no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
@@ -332,10 +387,10 @@ class EnviarMensajeAPIView(APIView):
                 "contenido": mensaje_original,
                 "autor": autor,
                 "fecha_publicacion": fecha,
+                "reach" : reach
+
             }
-
             mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
-
             filtros = {"proyecto_id": proyecto_id}
             if tipo_alerta == "medios":
                 filtros["medio_id"] = alerta_id
@@ -397,3 +452,4 @@ class EnviarMensajeAPIView(APIView):
             "enviados": enviados,
             "no_enviados": no_enviados,
         }, status=status.HTTP_200_OK)
+
