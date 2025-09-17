@@ -39,6 +39,9 @@ class RedesListAPIView(generics.ListAPIView):
             queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
         for red in queryset:
+            if not red.red_social:  # saltar si es None
+                continue
+
             for detalle in red.detalles_envio.all():
                 if red.red_social.red_social.lower() == "twitter":
                     if "QT" in detalle.mensaje or "Repost" in detalle.mensaje:
@@ -48,7 +51,7 @@ class RedesListAPIView(generics.ListAPIView):
 
                     detalle.mensaje = obtener_contenido_twitter(detalle.mensaje, "twitter")
                 else:
-                    detalle.qt = "No"  # Otras redes
+                    detalle.qt = "No"
 
         return queryset
 
