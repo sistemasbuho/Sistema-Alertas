@@ -331,7 +331,7 @@ class EnviarMensajeAPIView(APIView):
                 "titulo": titulo,
                 "contenido": mensaje_original,
                 "autor": autor,
-                "fecha": fecha,
+                "fecha_publicacion": fecha,
             }
 
             mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
