@@ -62,67 +62,137 @@ def formatear_mensaje(alerta, plantilla):
 # Medios
 # -----------------------
 class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
-    """
-    Captura alertas recibidas vía JSON, valida duplicados por URL y proyecto,
-    parsea fechas y devuelve resultado al front.
-    """
+    access_key = os.getenv("WHAPI_TOKEN")
+    url_mensaje = "https://gate.whapi.cloud/messages/text"
+    max_retries = 3
+    retry_delay = 2
+
     def post(self, request):
         proyecto_id = request.data.get("proyecto_id")
+        grupo_id = request.data.get("grupo_id")
+        tipo_alerta = request.data.get("tipo_alerta")  # medio | redes
         alertas = request.data.get("alertas", [])
 
-        if not proyecto_id or not alertas:
-            return Response({"error": "Se requieren 'proyecto_id' y 'alertas'"}, status=400)
+        if not proyecto_id or not grupo_id or not tipo_alerta or not alertas:
+            return Response(
+                {"error": "Se requieren 'proyecto_id', 'grupo_id', 'tipo_alerta' y 'alertas'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+        if tipo_alerta not in ["medio", "redes"]:
+            return Response(
+                {"error": "El campo 'tipo_alerta' debe ser 'medio' o 'redes'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        plantilla_mensaje = {}
-        template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+        # Obtener plantilla del proyecto
+        plantilla = {}
+        template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
         if template_config:
-            plantilla_mensaje = template_config.config_campos  
+            plantilla = template_config.config_campos
 
-        procesadas = []
-        duplicadas = []
+        headers = {
+            "Authorization": f"Bearer {self.access_key}",
+            "Content-Type": "application/json",
+        }
 
-        for record in alertas:
-            url = record.get("url")
-            alerta_existente = DetalleEnvio.objects.filter(
-                medio=record.get("id"), estado_enviado=True, proyecto_id=proyecto
-            ).first()
+        enviados = []
+        no_enviados = []
 
-            if alerta_existente:
-                duplicadas.append({
-                    "id": alerta_existente.id,
-                    "id_articulo": record.get("id"),
-                    "mensaje": alerta_existente.mensaje
-                })
+        for alerta in alertas:
+            alerta_id = alerta.get("id")  # id de la alerta en el JSON
+            mensaje_original = alerta.get("contenido", "")
+            titulo = alerta.get("titulo", "")
+            autor = alerta.get("autor", "")
+            fecha = alerta.get("fecha", "")
+
+            if not alerta_id:
+                no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
                 continue
 
-            titulo = record.get("titulo")
-            mensaje = record.get("contenido", "")
-            fecha_pub = self._parse_fecha(record.get("fecha"))
-            autor = record.get("autor")
-            reach = record.get("reach")
-
-            procesadas.append({
-                "id": record.get("id"),
+            # Preparamos los datos para el formateo
+            alerta_data = {
                 "titulo": titulo,
-                "url": url,
-                "mensaje": mensaje,
-                "fecha": fecha_pub,
+                "contenido": mensaje_original,
                 "autor": autor,
-                "reach": reach
-            })
+                "fecha": fecha,
+            }
 
-            for alerta in procesadas:
-                alerta["mensaje_formateado"] = formatear_mensaje(alerta, plantilla_mensaje)
+            # Formatear mensaje con la plantilla
+            mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
 
-        return Response({
-            "procesadas": procesadas,
-            "duplicadas": duplicadas,
-            "mensaje": f"{len(procesadas)} alertas procesadas, {len(duplicadas)} duplicadas.",
-            "plantilla_mensaje": plantilla_mensaje,
-            "codigo_acceso": proyecto.codigo_acceso  
-        }, status=200)
+            # Crear o actualizar detalle de envío
+            filtros = {"proyecto_id": proyecto_id}
+            if tipo_alerta == "medio":
+                filtros["medio_id"] = alerta_id
+            else:
+                filtros["red_social_id"] = alerta_id
+
+            detalle_envio, _ = DetalleEnvio.objects.update_or_create(
+                **filtros,
+                defaults={
+                    "inicio_envio": timezone.now(),
+                    "mensaje": mensaje_formateado,
+                    "usuario": request.user if request.user.is_authenticated else None,
+                    "proyecto_id": proyecto_id,
+                },
+            )
+
+            # Si ya fue enviado, no lo reenviamos
+            if detalle_envio.estado_enviado:
+                no_enviados.append(
+                    {"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"}
+                )
+                continue
+
+            # Armar payload para WhatsApp
+            payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
+
+            success = False
+            attempts = 0
+            while attempts < self.max_retries and not success:
+                try:
+                    response = requests.post(self.url_mensaje, json=payload, headers=headers)
+                    if response.status_code == 200:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = True
+                        detalle_envio.save()
+                        enviados.append(alerta_id)
+                        success = True
+                    else:
+                        attempts += 1
+                        if attempts < self.max_retries:
+                            time.sleep(self.retry_delay)
+                        else:
+                            detalle_envio.fin_envio = timezone.now()
+                            detalle_envio.estado_enviado = False
+                            detalle_envio.save()
+                            no_enviados.append(
+                                {
+                                    "alerta_id": alerta_id,
+                                    "status_code": response.status_code,
+                                    "detalle": response.json(),
+                                }
+                            )
+                except requests.RequestException as e:
+                    attempts += 1
+                    if attempts < self.max_retries:
+                        time.sleep(self.retry_delay)
+                    else:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = False
+                        detalle_envio.save()
+                        no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+        return Response(
+            {
+                "success": f"Se enviaron {len(enviados)} alertas",
+                "enviados": enviados,
+                "no_enviados": no_enviados,
+                "plantilla_usada": plantilla,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # -----------------------
@@ -205,29 +275,38 @@ class EnviarMensajeAPIView(APIView):
     max_retries = 3
     retry_delay = 2
 
-class EnviarMensajeAPIView(APIView):
-    access_key = os.getenv("WHAPI_TOKEN")
-    url_mensaje = "https://gate.whapi.cloud/messages/text"
-    max_retries = 3
-    retry_delay = 2
-
     def post(self, request):
         proyecto_id = request.data.get("proyecto_id")
-        grupo_id = request.data.get("grupo_id")
-        tipo_alerta = request.data.get("tipo_alerta")  # medio | redes
+        tipo_alerta = request.data.get("tipo_alerta")  # medios | redes
         alertas = request.data.get("alertas", [])
 
-        if not proyecto_id or not grupo_id or not tipo_alerta or not alertas:
+        if not proyecto_id or not tipo_alerta or not alertas:
             return Response(
-                {"error": "Se requieren 'proyecto_id', 'grupo_id', 'tipo_alerta' y 'alertas'"},
+                {"error": "Se requieren 'proyecto_id', 'tipo_alerta' y 'alertas'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if tipo_alerta not in ["medio", "redes"]:
+        if tipo_alerta not in ["medios", "redes"]:
             return Response(
                 {"error": "El campo 'tipo_alerta' debe ser 'medio' o 'redes'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Obtener grupo_id automáticamente desde el proyecto
+        try:
+            proyecto = Proyecto.objects.get(id=proyecto_id)
+            grupo_id = proyecto.codigo_acceso  # ⚡ Asegúrate de que tu modelo tenga este campo
+        except Proyecto.DoesNotExist:
+            return Response(
+                {"error": "Proyecto no existe"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Obtener plantilla del proyecto
+        plantilla = {}
+        template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
+        if template_config:
+            plantilla = template_config.config_campos
 
         headers = {
             "Authorization": f"Bearer {self.access_key}",
@@ -238,68 +317,57 @@ class EnviarMensajeAPIView(APIView):
         no_enviados = []
 
         for alerta in alertas:
-            publicacion_id = alerta.get("publicacion_id")
-            mensaje = alerta.get("mensaje")
+            alerta_id = alerta.get("id")
+            mensaje_original = alerta.get("contenido", "")
+            titulo = alerta.get("titulo", "")
+            autor = alerta.get("autor", "")
+            fecha = alerta.get("fecha", "")
 
-            if not publicacion_id or not mensaje:
-                no_enviados.append(
-                    {"publicacion_id": publicacion_id, "error": "Faltan datos en la alerta"}
-                )
+            if not alerta_id:
+                no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
                 continue
 
-            try:
-                # Buscar la publicación asociada al proyecto
-                if tipo_alerta == "medio":
-                    publicacion = Articulo.objects.get(id=publicacion_id, proyecto_id=proyecto_id)
-                    filtros = {"medio": publicacion, "proyecto_id": proyecto_id}
-                else:  # redes
-                    publicacion = Redes.objects.get(id=publicacion_id, proyecto_id=proyecto_id)
-                    filtros = {"red_social": publicacion, "proyecto_id": proyecto_id}
-            except (Articulo.DoesNotExist, Redes.DoesNotExist):
-                no_enviados.append(
-                    {
-                        "publicacion_id": publicacion_id,
-                        "error": f"{tipo_alerta.capitalize()} con ese id no existe en el proyecto",
-                    }
-                )
-                continue
+            alerta_data = {
+                "titulo": titulo,
+                "contenido": mensaje_original,
+                "autor": autor,
+                "fecha": fecha,
+            }
 
-            # Crear o actualizar detalle de envío
+            mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
+
+            filtros = {"proyecto_id": proyecto_id}
+            if tipo_alerta == "medios":
+                filtros["medio_id"] = alerta_id
+            else:
+                filtros["red_social_id"] = alerta_id
+
             detalle_envio, _ = DetalleEnvio.objects.update_or_create(
                 **filtros,
                 defaults={
                     "inicio_envio": timezone.now(),
-                    "mensaje": mensaje,
+                    "mensaje": mensaje_formateado,
                     "usuario": request.user if request.user.is_authenticated else None,
                     "proyecto_id": proyecto_id,
                 },
             )
 
-            # Si ya fue enviado, no lo reenviamos
             if detalle_envio.estado_enviado:
-                no_enviados.append(
-                    {"publicacion_id": publicacion_id, "error": "Ya fue enviada anteriormente"}
-                )
+                no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
                 continue
 
-            # Armar payload
-            payload = {
-                "to": grupo_id,
-                "body": mensaje,
-                "no_link_preview": True,
-            }
+            payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
 
             success = False
             attempts = 0
             while attempts < self.max_retries and not success:
                 try:
                     response = requests.post(self.url_mensaje, json=payload, headers=headers)
-
                     if response.status_code == 200:
                         detalle_envio.fin_envio = timezone.now()
                         detalle_envio.estado_enviado = True
                         detalle_envio.save()
-                        enviados.append(publicacion_id)
+                        enviados.append(alerta_id)
                         success = True
                     else:
                         attempts += 1
@@ -309,13 +377,11 @@ class EnviarMensajeAPIView(APIView):
                             detalle_envio.fin_envio = timezone.now()
                             detalle_envio.estado_enviado = False
                             detalle_envio.save()
-                            no_enviados.append(
-                                {
-                                    "publicacion_id": publicacion_id,
-                                    "status_code": response.status_code,
-                                    "detalle": response.json(),
-                                }
-                            )
+                            no_enviados.append({
+                                "alerta_id": alerta_id,
+                                "status_code": response.status_code,
+                                "detalle": response.json(),
+                            })
                 except requests.RequestException as e:
                     attempts += 1
                     if attempts < self.max_retries:
@@ -324,15 +390,10 @@ class EnviarMensajeAPIView(APIView):
                         detalle_envio.fin_envio = timezone.now()
                         detalle_envio.estado_enviado = False
                         detalle_envio.save()
-                        no_enviados.append(
-                            {"publicacion_id": publicacion_id, "error": f"Error de conexión: {str(e)}"}
-                        )
+                        no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
 
-        return Response(
-            {
-                "success": f"Se enviaron {len(enviados)} alertas",
-                "enviados": enviados,
-                "no_enviados": no_enviados,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({
+            "success": f"Se enviaron {len(enviados)} alertas",
+            "enviados": enviados,
+            "no_enviados": no_enviados,
+        }, status=status.HTTP_200_OK)
