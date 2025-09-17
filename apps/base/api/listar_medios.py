@@ -24,21 +24,23 @@ class MediosListAPIView(generics.ListAPIView):
             return queryset
 
         return queryset.filter(detalles_envio__estado_enviado=False).distinct()
-
+    
     def get_serializer_context(self):
         """
-        Pasa la plantilla al serializer para formatear mensajes.
-        Podrías incluso personalizarla por usuario/proyecto si quisieras.
+        Pasa la plantilla al serializer para que cada registro pueda formatear su mensaje.
         """
         context = super().get_serializer_context()
-        context["plantilla"] = {
-            "titulo": {"orden": 1, "estilo": {"negrita": True}},
-            "contenido": {"orden": 2, "estilo": {"inclinado": True}},
-            "mensaje": {"orden": 3, "estilo": {}},
-        }
+        proyecto_id = self.request.query_params.get("proyecto_id")
+        plantilla_mensaje = {}
+
+        if proyecto_id:
+            template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
+            if template_config:
+                plantilla_mensaje = template_config.config_campos
+
+        context["plantilla"] = plantilla_mensaje
         return context
 
-        
 class MediosUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Articulo.objects.all()

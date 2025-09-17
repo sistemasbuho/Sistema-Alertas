@@ -3,40 +3,30 @@ from apps.base.models import Articulo
 
 class MediosSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
-    mensaje_formateado = serializers.SerializerMethodField()  # 👈 nuevo campo
 
     class Meta:
         model = Articulo
-        fields = "__all__"  # incluye todos los campos del modelo
-        extra_fields = ["proyecto_nombre", "mensaje_formateado"]
+        fields = "__all__"  # incluye todos los campos + proyecto_nombre
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
 
     def get_mensaje_formateado(self, obj):
         """
-        Genera un mensaje formateado aplicando una plantilla de estilos.
-        La plantilla se pasa en el contexto o usa un valor por defecto.
+        Genera un mensaje formateado usando la plantilla que viene desde el contexto de la vista.
         """
-        plantilla = self.context.get("plantilla", {
-            "titulo": {"orden": 1, "estilo": {"negrita": True}},
-            "contenido": {"orden": 2, "estilo": {"inclinado": True}},
-            "mensaje": {"orden": 3, "estilo": {}},
-        })
+        plantilla = self.context.get("plantilla", {})
 
-        alerta = {
-            "titulo": getattr(obj, "titulo", None),
-            "contenido": getattr(obj, "contenido", None),
-            "mensaje": getattr(obj, "mensaje", None),
-        }
+        # Solo mapea los campos que aparecen en la plantilla
+        alerta = {campo: getattr(obj, campo, None) for campo in plantilla.keys()}
+        alerta["mensaje"] = getattr(obj, "mensaje", None)  # fallback
 
-        from apps.utils import formatear_mensaje  # 👈 importa tu función
+        # Usa tu función existente
         return formatear_mensaje(alerta, plantilla)
 
     def validate(self, data):
-        """
-        Validar que no se repita la URL en el mismo proyecto.
-        """
+
+        # Si es un update, obtenemos valores existentes
         proyecto = data.get("proyecto", getattr(self.instance, "proyecto", None))
         url = data.get("url", getattr(self.instance, "url", None))
 
@@ -51,3 +41,4 @@ class MediosSerializer(serializers.ModelSerializer):
                 )
 
         return data
+
