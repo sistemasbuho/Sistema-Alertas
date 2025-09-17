@@ -5,6 +5,7 @@ from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 
 class MediosSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
+    estado_revisado = serializers.SerializerMethodField()
 
     class Meta:
         model = Articulo
@@ -12,6 +13,20 @@ class MediosSerializer(serializers.ModelSerializer):
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
+
+    def get_estado_revisado(self, obj):
+        detalles = getattr(obj, "detalles_envio", None)
+
+        if not detalles:
+            return None  
+
+        if all(getattr(d, "revisado", False) for d in detalles.all()):
+            return "Revisado"
+
+        if any(not getattr(d, "revisado", False) for d in detalles.all()):
+            return "Pendiente"
+
+        return None
 
     def validate(self, data):
         """
