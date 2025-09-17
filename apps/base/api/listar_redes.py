@@ -31,19 +31,26 @@ class RedesListAPIView(generics.ListAPIView):
     filterset_class = RedesFilter
     pagination_class = PaginacionEstandar
 
-    def get_queryset(self):
-        all_param = self.request.query_params.get("all", "false").lower()
-        queryset = Redes.objects.select_related("proyecto").prefetch_related("detalles_envio")
+def get_queryset(self):
+    all_param = self.request.query_params.get("all", "false").lower()
+    queryset = Redes.objects.select_related("proyecto").prefetch_related("detalles_envio")
 
-        if all_param != "true":
-            queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
+    if all_param != "true":
+        queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
-        for red in queryset:
+    for red in queryset:
+        for detalle in red.detalles_envio.all():
             if red.red_social.red_social.lower() == "twitter":
-                for detalle in red.detalles_envio.all():
-                    detalle.mensaje = obtener_contenido_twitter(detalle.mensaje, "twitter")
+                if "QT" in detalle.mensaje or "Repost" in detalle.mensaje:
+                    detalle.qt = "Sí"
+                else:
+                    detalle.qt = "No"
 
-        return queryset
+                detalle.mensaje = obtener_contenido_twitter(detalle.mensaje, "twitter")
+            else:
+                detalle.qt = "No"  # Otras redes
+
+    return queryset
 
 class RedesUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
