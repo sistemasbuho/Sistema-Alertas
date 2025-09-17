@@ -25,6 +25,20 @@ class MediosListAPIView(generics.ListAPIView):
 
         return queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
+    def get_serializer_context(self):
+        """
+        Pasa la plantilla al serializer para formatear mensajes.
+        Podrías incluso personalizarla por usuario/proyecto si quisieras.
+        """
+        context = super().get_serializer_context()
+        context["plantilla"] = {
+            "titulo": {"orden": 1, "estilo": {"negrita": True}},
+            "contenido": {"orden": 2, "estilo": {"inclinado": True}},
+            "mensaje": {"orden": 3, "estilo": {}},
+        }
+        return context
+
+        
 class MediosUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Articulo.objects.all()
