@@ -305,7 +305,7 @@ class MarcarRevisadoAPIView(APIView):
 
             detalle_qs = DetalleEnvio.objects.filter(**filtros)
             if detalle_qs.exists():
-                detalle_qs.update(estado_revisado=True, updated_at=timezone.now())
+                detalle_qs.update(estado_revisado=True, modified_at=timezone.now())
                 actualizados.append(alerta_id)
             else:
                 no_encontrados.append({"id": alerta_id, "error": "No se encontró la alerta"})
