@@ -36,7 +36,6 @@ def get_grupo_id(grupo_whatsapp: str) -> Optional[str]:
 
 
 class ProyectoAPIView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
     queryset = Proyecto.objects.all()
     serializer_class = ProyectoCreateSerializer
     lookup_field = 'id'
