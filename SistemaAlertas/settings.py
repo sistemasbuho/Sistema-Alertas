@@ -127,7 +127,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://sistema.alertas.buho.media",
-    "http://sistema.alertas.buho.media"
+    "http://sistema.alertas.buho.media",
+    "https://api.monitoreo.buho.media",
+    "https://monitoreo.buho.media"
+
 ]
 
 CORS_ALLOW_CREDENTIALS = True
