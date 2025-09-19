@@ -459,3 +459,133 @@ class EnviarMensajeAPIView(APIView):
             "no_enviados": no_enviados,
         }, status=status.HTTP_200_OK)
 
+
+
+def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
+    """
+    Envía alertas automáticamente simulando lo que hace EnviarMensajeAPIView.post
+    """
+    access_key = os.getenv("WHAPI_TOKEN")
+    url_mensaje = "https://gate.whapi.cloud/messages/text"
+    max_retries = 3
+    retry_delay = 2
+
+    if not proyecto_id or not tipo_alerta or not alertas:
+        return {"error": "Se requieren 'proyecto_id', 'tipo_alerta' y 'alertas'"}
+
+    if tipo_alerta not in ["medios", "redes"]:
+        return {"error": "El campo 'tipo_alerta' debe ser 'medios' o 'redes'"}
+
+    # Obtener proyecto y grupo_id
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+        grupo_id = proyecto.codigo_acceso
+    except Proyecto.DoesNotExist:
+        return {"error": "Proyecto no existe"}
+
+    # Obtener plantilla del proyecto
+    plantilla = {}
+    template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
+    if template_config:
+        plantilla = template_config.config_campos
+
+    User = get_user_model()
+    usuario = User.objects.get(id=usuario_id)
+
+    headers = {
+        "Authorization": f"Bearer {access_key}",
+        "Content-Type": "application/json",
+    }
+
+    enviados = []
+    no_enviados = []
+
+    for alerta in alertas:
+        alerta_id = alerta.get("id")
+        url = alerta.get("url")
+        mensaje_original = alerta.get("contenido", "")
+        titulo = alerta.get("titulo", "")
+        autor = alerta.get("autor", "")
+        fecha = alerta.get("fecha", "")
+        reach = alerta.get("reach", "")
+        engagement = alerta.get("engagement", "")
+
+        if not alerta_id:
+            no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
+            continue
+
+        # Formatear mensaje
+        alerta_data = {
+            "url": url,
+            "titulo": titulo,
+            "contenido": mensaje_original,
+            "autor": autor,
+            "fecha_publicacion": fecha,
+            "reach": reach,
+            "engagement": engagement,
+        }
+        mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
+
+        # Crear o actualizar detalle de envío
+        filtros = {"proyecto_id": proyecto_id}
+        if tipo_alerta == "medios":
+            filtros["medio_id"] = alerta_id
+        else:
+            filtros["red_social_id"] = alerta_id
+
+        detalle_envio, _ = DetalleEnvio.objects.update_or_create(
+            **filtros,
+            defaults={
+                "inicio_envio": timezone.now(),
+                "mensaje": mensaje_formateado,
+                "usuario": usuario,
+                "proyecto_id": proyecto_id,
+            },
+        )
+
+        if detalle_envio.estado_enviado:
+            no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
+            continue
+
+        payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
+
+        # Reintentos
+        success = False
+        attempts = 0
+        while attempts < max_retries and not success:
+            try:
+                response = requests.post(url_mensaje, json=payload, headers=headers)
+                if response.status_code == 200:
+                    detalle_envio.fin_envio = timezone.now()
+                    detalle_envio.estado_enviado = True
+                    detalle_envio.save()
+                    enviados.append(alerta_id)
+                    success = True
+                else:
+                    attempts += 1
+                    if attempts < max_retries:
+                        time.sleep(retry_delay)
+                    else:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = False
+                        detalle_envio.save()
+                        no_enviados.append({
+                            "alerta_id": alerta_id,
+                            "status_code": response.status_code,
+                            "detalle": response.json(),
+                        })
+            except requests.RequestException as e:
+                attempts += 1
+                if attempts < max_retries:
+                    time.sleep(retry_delay)
+                else:
+                    detalle_envio.fin_envio = timezone.now()
+                    detalle_envio.estado_enviado = False
+                    detalle_envio.save()
+                    no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+    return {
+        "success": f"Se enviaron {len(enviados)} alertas",
+        "enviados": enviados,
+        "no_enviados": no_enviados,
+    }

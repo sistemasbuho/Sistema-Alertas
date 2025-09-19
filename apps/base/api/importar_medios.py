@@ -6,7 +6,7 @@ from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView
+from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView,enviar_alertas_automatico
 
 
 
@@ -89,30 +89,25 @@ class ImportarArticuloAPIView(APIView):
             })
 
         if proyecto.tipo_envio == "automatico" and creados:
-            enviar_api = EnviarMensajeAPIView()
-
-            simulated_request = HttpRequest()
-            simulated_request.method = "POST"
-            simulated_request.user = sistema_user
-            simulated_request._body = b""
-            simulated_request.data = {
-                "proyecto_id": proyecto.id,
-                "tipo_alerta": "medios",
-                "enviar": True,
-                "alertas": [
-                    {
-                        "id": c["id"],
-                        "url": c["url"],
-                        "contenido": c["titulo"],  # o contenido según prefieras
-                        "fecha": str(c["fecha"]),
-                        "titulo": c["titulo"],
-                        "autor": c.get("autor", ""),
-                        "reach": c.get("reach", None)
-                    } for c in creados
-                ],
-            }
-
-            enviar_api.post(simulated_request)
+            alertas = [
+                {
+                    "id": c["id"],
+                    "url": c["url"],
+                    "contenido": c["titulo"],  # contenido real del mensaje
+                    "titulo": c.get("titulo"),
+                    "autor": c.get("autor"),
+                    "fecha": c.get("fecha"),
+                    "reach": c.get("reach"),
+                    "engagement": c.get("engagement", None)
+                }
+                for c in creados
+            ]
+            enviar_alertas_automatico(
+                proyecto_id=proyecto.id,
+                tipo_alerta="medios",
+                alertas=alertas,
+                usuario_id=sistema_user.id
+            )
 
         return Response(
             {"mensaje": f"{len(creados)} artículos creados.",
