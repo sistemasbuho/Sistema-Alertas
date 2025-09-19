@@ -341,28 +341,21 @@ class EnviarMensajeAPIView(APIView):
 
         if tipo_alerta not in ["medios", "redes"]:
             return Response(
-                {"error": "El campo 'tipo_alerta' debe ser 'medios' o 'redes'"},
+                {"error": "El campo 'tipo_alerta' debe ser 'medio' o 'redes'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Obtener grupo_id automáticamente desde el proyecto
         try:
             proyecto = Proyecto.objects.get(id=proyecto_id)
-            grupo_id = proyecto.codigo_acceso
+            grupo_id = proyecto.codigo_acceso  # ⚡ Asegúrate de que tu modelo tenga este campo
         except Proyecto.DoesNotExist:
             return Response(
                 {"error": "Proyecto no existe"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Selección del usuario según el tipo de envío
-        User = get_user_model()
-        sistema_user = User.objects.get(id=2)
-
-        if proyecto.tipo_envio == "automatico":
-            usuario_envio = sistema_user
-        else:  # manual
-            usuario_envio = request.user if request.user.is_authenticated else None
-
+        # Obtener plantilla del proyecto
         plantilla = {}
         template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
         if template_config:
@@ -386,20 +379,23 @@ class EnviarMensajeAPIView(APIView):
             reach = alerta.get("reach", "")
             engagement = alerta.get("engagement", "")
 
+
+
+
             if not alerta_id:
                 no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
                 continue
 
             alerta_data = {
-                "url": url,
+                "url" : url,
                 "titulo": titulo,
                 "contenido": mensaje_original,
                 "autor": autor,
                 "fecha_publicacion": fecha,
-                "reach": reach,
-                "engagement": engagement,
-            }
+                "reach" : reach,
+                "engagement" :engagement
 
+            }
             mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
             filtros = {"proyecto_id": proyecto_id}
             if tipo_alerta == "medios":
@@ -412,7 +408,54 @@ class EnviarMensajeAPIView(APIView):
                 defaults={
                     "inicio_envio": timezone.now(),
                     "mensaje": mensaje_formateado,
-                    "usuario": usuario_envio,
+                    "usuario": request.user if request.user.is_authenticated else None,
                     "proyecto_id": proyecto_id,
                 },
             )
+
+            if detalle_envio.estado_enviado:
+                no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
+                continue
+
+            payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
+
+            success = False
+            attempts = 0
+            while attempts < self.max_retries and not success:
+                try:
+                    response = requests.post(self.url_mensaje, json=payload, headers=headers)
+                    if response.status_code == 200:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = True
+                        detalle_envio.save()
+                        enviados.append(alerta_id)
+                        success = True
+                    else:
+                        attempts += 1
+                        if attempts < self.max_retries:
+                            time.sleep(self.retry_delay)
+                        else:
+                            detalle_envio.fin_envio = timezone.now()
+                            detalle_envio.estado_enviado = False
+                            detalle_envio.save()
+                            no_enviados.append({
+                                "alerta_id": alerta_id,
+                                "status_code": response.status_code,
+                                "detalle": response.json(),
+                            })
+                except requests.RequestException as e:
+                    attempts += 1
+                    if attempts < self.max_retries:
+                        time.sleep(self.retry_delay)
+                    else:
+                        detalle_envio.fin_envio = timezone.now()
+                        detalle_envio.estado_enviado = False
+                        detalle_envio.save()
+                        no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+        return Response({
+            "success": f"Se enviaron {len(enviados)} alertas",
+            "enviados": enviados,
+            "no_enviados": no_enviados,
+        }, status=status.HTTP_200_OK)
+
