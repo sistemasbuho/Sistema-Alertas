@@ -24,17 +24,12 @@ class ImportarArticuloAPIView(APIView):
             return Response({"error": "Dominio no autorizado"}, status=403)
 
 
-        print('request.data.get',request.data)
 
         proyecto_id = request.data.get("proyecto_id")
         articulos_data = request.data.get("articulos", [])
 
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
-
-            print('proyecto_id---------------',proyecto_id)
-            print('tipo---------------',type(proyecto_id))
-
 
         if not proyecto_id or not articulos_data:
             return Response({"error": "Se requieren 'proyecto_id' y 'articulos'"}, status=403)
@@ -47,7 +42,6 @@ class ImportarArticuloAPIView(APIView):
         User = get_user_model()
         system_user = User.objects.get(id=2)
 
-        print('APASASAS')
         creados, errores = [], []
 
         for data in articulos_data:
@@ -91,6 +85,9 @@ class ImportarArticuloAPIView(APIView):
                 "titulo": articulo.titulo,
                 "url": articulo.url
             })
+
+        print('PASA QAUI')
+        print('PASA QAUI',proyecto.tipo_envio)
 
         if proyecto.tipo_envio == "automatico":
             enviar_api = EnviarMensajeAPIView()
