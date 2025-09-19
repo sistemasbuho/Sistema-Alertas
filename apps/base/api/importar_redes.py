@@ -5,13 +5,11 @@ from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
 
 class ImportarRedesAPIView(APIView):
-    authentication_classes = []
-    permission_classes = []
 
     def post(self, request):
-        # origin = request.headers.get("X-Custom-Domain")
-        # if origin != "https://api.monitoreo.buho.media/":
-        #     return Response({"error": "Dominio no autorizado"}, status=403)
+        origin = request.headers.get("X-Custom-Domain")
+        if origin != "https://api.monitoreo.buho.media/":
+            return Response({"error": "Dominio no autorizado"}, status=403)
 
 
         proyecto_id = request.data.get("proyecto_id")
