@@ -88,27 +88,27 @@ class ImportarArticuloAPIView(APIView):
                 "reach": reach,
             })
 
-        envio_resultado = None
+            envio_resultado = None
 
-        if proyecto.tipo_envio == "automatico" and creados:
-            enviar_api = EnviarMensajeAPIView()
-            fake_request = request._request  # HttpRequest subyacente
-            fake_request.data = {
-                "proyecto_id": str(proyecto.id),
-                "tipo_alerta": "medios",
-                "alertas": creados
-            }
-            envio_resultado = enviar_api.post(request=fake_request).data
+            if proyecto.tipo_envio == "automatico" and creados:
+                enviar_api = EnviarMensajeAPIView()
+                fake_request = request._request  # HttpRequest subyacente
+                fake_request.data = {
+                    "proyecto_id": str(proyecto.id),
+                    "tipo_alerta": "medios",
+                    "alertas": creados
+                }
+                envio_resultado = enviar_api.post(request=fake_request).data
 
-        elif proyecto.tipo_envio == "automatico" and creados:
-            for creado in creados:
-                DetalleEnvio.objects.filter(medio_id=creado["id"]).update(
-                    fecha_programada=timezone.now() + timedelta(hours=12)
-                )
-            envio_resultado = {
-                "estado": "automatico",
-                "detalle": f"Se programaron {len(creados)} artículos para envío"
-            }
+            elif proyecto.tipo_envio == "automatico" and creados:
+                for creado in creados:
+                    DetalleEnvio.objects.filter(medio_id=creado["id"]).update(
+                        fecha_programada=timezone.now() + timedelta(hours=12)
+                    )
+                envio_resultado = {
+                    "estado": "automatico",
+                    "detalle": f"Se programaron {len(creados)} artículos para envío"
+                }
 
         return Response(
             {

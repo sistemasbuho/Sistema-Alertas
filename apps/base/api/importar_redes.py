@@ -33,6 +33,9 @@ class ImportarRedesAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
+        User = get_user_model()
+        sistema_user = User.objects.get(id=2)             
+
         for data in redes_data:
             contenido = data.get("contenido")
             fecha = data.get("fecha")
@@ -40,7 +43,8 @@ class ImportarRedesAPIView(APIView):
             autor = data.get("autor")
             reach = data.get("reach")
             engagement = data.get("engagement")
-            red_social_nombre = data.get("red_social") 
+            red_social_nombre = data.get("red_social"),
+            created_by=sistema_user
 
             if not url or not url.strip():
                 errores.append({
@@ -69,7 +73,8 @@ class ImportarRedesAPIView(APIView):
                 reach=reach,
                 engagement=engagement,
                 proyecto=proyecto,
-                red_social=red_social_obj 
+                red_social=red_social_obj,
+                created_by=sistema_user
             )
 
             detalle_envio = DetalleEnvio.objects.create(
