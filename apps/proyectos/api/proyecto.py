@@ -46,7 +46,7 @@ class ProyectoAPIView(generics.GenericAPIView):
     def _validar_token(self, request):
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return False, "Token no enviado o inválido"
+            return False, "Token no enviado o invá  lido"
         token = auth_header.split(" ")[1]
         if token != API_TOKEN:
             return False, "Token no autorizado"
@@ -133,3 +133,30 @@ class PlantillaProyectoAPIView(APIView):
             plantilla = template_config.config_campos
 
         return Response({"proyecto_id": proyecto_id, "plantilla": plantilla})
+
+
+
+#probar la creacion de las plantillas
+    # def post(self, request, *args, **kwargs):
+    #     serializer = ProyectoCreateSerializer(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+
+    #     proyecto = serializer.save()
+
+    #     # Crear plantilla según tipo_alerta
+    #     if proyecto.tipo_alerta == "medio":
+    #         config_campos = generar_plantilla_desde_modelo(Articulo)
+    #     elif proyecto.tipo_alerta == "redes":
+    #         config_campos = generar_plantilla_desde_modelo(Redes)
+    #     else:
+    #         config_campos = {}
+
+    #     TemplateConfig.objects.create(
+    #         proyecto=proyecto,
+    #         config_campos=config_campos
+    #     )
+
+    #     return Response(
+    #         ProyectoCreateSerializer(proyecto).data,
+    #         status=status.HTTP_201_CREATED
+    #     )

@@ -36,7 +36,7 @@ class MediosFilter(django_filters.FilterSet):
 class DetalleEnvioFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(field_name="usuario__username", lookup_expr="icontains")
     proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
-    estado_enviado = django_filters.CharFilter(field_name="estado_enviado", lookup_expr="exact")
+    estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
     created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
     created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
     inicio_envio_desde = django_filters.DateTimeFilter(field_name="inicio_envio", lookup_expr="gte")

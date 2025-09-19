@@ -5,6 +5,7 @@ from apps.base.models import Articulo,Redes,DetalleEnvio
 from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
+from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView
 
 
 
@@ -15,7 +16,6 @@ class ImportarArticuloAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        # Validación de dominio
         origin = request.headers.get("X-Custom-Domain")
         if origin != "https://api.monitoreo.buho.media/":
             return Response({"error": "Dominio no autorizado"}, status=403)
@@ -80,13 +80,42 @@ class ImportarArticuloAPIView(APIView):
 
             creados.append({
                 "id": articulo.id,
-                "titulo": articulo.titulo,
-                "url": articulo.url
+                "url": articulo.url,
+                "contenido": contenido,
+                "fecha": fecha,
+                "titulo": titulo,
+                "autor": autor,
+                "reach": reach,
             })
 
+        envio_resultado = None
+
+        if proyecto.tipo_envio == "automatico" and creados:
+            enviar_api = EnviarMensajeAPIView()
+            fake_request = request._request  # HttpRequest subyacente
+            fake_request.data = {
+                "proyecto_id": str(proyecto.id),
+                "tipo_alerta": "medios",
+                "alertas": creados
+            }
+            envio_resultado = enviar_api.post(request=fake_request).data
+
+        elif proyecto.tipo_envio == "programado" and creados:
+            for creado in creados:
+                DetalleEnvio.objects.filter(medio_id=creado["id"]).update(
+                    fecha_programada=timezone.now() + timedelta(hours=12)
+                )
+            envio_resultado = {
+                "estado": "programado",
+                "detalle": f"Se programaron {len(creados)} artículos para envío"
+            }
+
         return Response(
-            {"mensaje": f"{len(creados)} artículos creados.",
-             "creados": creados,
-             "errores": errores},
+            {
+                "mensaje": f"{len(creados)} artículos creados.",
+                "creados": creados,
+                "errores": errores,
+                "envio": envio_resultado if envio_resultado else "no_aplica"
+            },
             status=201 if creados else 400
         )

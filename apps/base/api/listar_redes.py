@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 
 def obtener_contenido_twitter(texto, red_social):
     """
-    Devuelve solo la parte del texto antes de QT/Repost si es Twitter.
+    Devuelve el texto hasta QT/Repost (incluyendo la palabra).
     """
     if red_social.lower() == "twitter":
         qt_index = texto.find("QT")
@@ -18,6 +18,11 @@ def obtener_contenido_twitter(texto, red_social):
         indices = [i for i in [qt_index, repost_index] if i != -1]
         if indices:
             corte = min(indices)
+            # Agregamos la longitud de la palabra encontrada
+            if corte == qt_index:
+                corte += len("QT")
+            elif corte == repost_index:
+                corte += len("Repost")
             return texto[:corte].strip()
         else:
             return texto.strip()
