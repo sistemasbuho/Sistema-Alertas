@@ -100,13 +100,13 @@ class ImportarArticuloAPIView(APIView):
             }
             envio_resultado = enviar_api.post(request=fake_request).data
 
-        elif proyecto.tipo_envio == "programado" and creados:
+        elif proyecto.tipo_envio == "automatico" and creados:
             for creado in creados:
                 DetalleEnvio.objects.filter(medio_id=creado["id"]).update(
                     fecha_programada=timezone.now() + timedelta(hours=12)
                 )
             envio_resultado = {
-                "estado": "programado",
+                "estado": "automatico",
                 "detalle": f"Se programaron {len(creados)} artículos para envío"
             }
 
