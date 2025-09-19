@@ -32,8 +32,12 @@ class ImportarArticuloAPIView(APIView):
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
 
+            print('proyecto_id---------------',proyecto_id)
+            print('tipo---------------',type(proyecto_id))
+
+
         if not proyecto_id or not articulos_data:
-            return Response({"error": "Se requieren 'proyecto_id' y 'articulos'"}, status=400)
+            return Response({"error": "Se requieren 'proyecto_id' y 'articulos'"}, status=403)
 
         proyecto = Proyecto.objects.filter(id=proyecto_id).first()
         if not proyecto:
@@ -43,6 +47,7 @@ class ImportarArticuloAPIView(APIView):
         User = get_user_model()
         system_user = User.objects.get(id=2)
 
+        print('APASASAS')
         creados, errores = [], []
 
         for data in articulos_data:
