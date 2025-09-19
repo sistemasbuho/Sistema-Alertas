@@ -12,8 +12,6 @@ from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView
 from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
-    authentication_classes = []
-    permission_classes = []
 
     def post(self, request):
         origin = request.headers.get("X-Custom-Domain")

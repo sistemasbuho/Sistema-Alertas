@@ -5,8 +5,7 @@ from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
 
 class ImportarRedesAPIView(APIView):
-    authentication_classes = []
-    permission_classes = []
+
 
     def post(self, request):
         # Validación de dominio si es necesario
@@ -98,9 +97,8 @@ class ImportarRedesAPIView(APIView):
         envio_resultado = None
 
         if proyecto.tipo_envio == "automatico" and creados:
-            # Llamar al mismo flujo de envío automático
             enviar_api = EnviarMensajeAPIView()
-            fake_request = request._request  # HttpRequest base
+            fake_request = request._request  
             fake_request.data = {
                 "proyecto_id": str(proyecto.id),
                 "tipo_alerta": "redes",
