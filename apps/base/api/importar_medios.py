@@ -88,7 +88,6 @@ class ImportarArticuloAPIView(APIView):
                 "url": articulo.url
             })
 
-        # 🔹 Solo si es automático, enviar al API
         if proyecto.tipo_envio == "automatico" and creados:
             enviar_api = EnviarMensajeAPIView()
 
@@ -115,7 +114,6 @@ class ImportarArticuloAPIView(APIView):
 
             enviar_api.post(simulated_request)
 
-        # 🔹 Respuesta final siempre igual
         return Response(
             {"mensaje": f"{len(creados)} artículos creados.",
              "creados": creados,
