@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from django.utils.timezone import now
 from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
+from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView,enviar_alertas_automatico
+from django.contrib.auth import get_user_model
 
 class ImportarRedesAPIView(APIView):
     authentication_classes = []
@@ -84,6 +86,22 @@ class ImportarRedesAPIView(APIView):
                 "url": red.url,
                 "fecha": red.fecha_publicacion
             })
+
+            if proyecto.tipo_envio == "automatico" and creados:
+                alertas = [
+                    {
+                        "id": c["id"],
+                        "url": c["url"],
+                        "contenido": c.get("contenido", "")  # si quieres pasar contenido adicional
+                    }
+                    for c in creados
+                ]
+                enviar_alertas_automatico(
+                    proyecto_id=proyecto.id,
+                    tipo_alerta="redes",
+                    alertas=alertas,
+                    usuario_id=sistema_user.id
+                )
 
         return Response(
             {
