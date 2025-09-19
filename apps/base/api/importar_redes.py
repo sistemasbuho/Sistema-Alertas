@@ -35,6 +35,10 @@ class ImportarRedesAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
+        
+        User = get_user_model()
+        sistema_user = User.objects.get(id=2) 
+
         for data in redes_data:
             contenido = data.get("contenido")
             fecha = data.get("fecha")
@@ -87,21 +91,26 @@ class ImportarRedesAPIView(APIView):
                 "fecha": red.fecha_publicacion
             })
 
-            if proyecto.tipo_envio == "automatico" and creados:
-                alertas = [
-                    {
-                        "id": c["id"],
-                        "url": c["url"],
-                        "contenido": c.get("contenido", "")  # si quieres pasar contenido adicional
-                    }
-                    for c in creados
-                ]
-                enviar_alertas_automatico(
-                    proyecto_id=proyecto.id,
-                    tipo_alerta="redes",
-                    alertas=alertas,
-                    usuario_id=sistema_user.id
-                )
+        if proyecto.tipo_envio == "automatico" and creados:
+            alertas = [
+                {
+                    "id": c["id"],
+                    "url": c["url"],
+                    "contenido": c.get("contenido", ""),  # aquí pasamos el contenido completo
+                    "titulo": c.get("titulo", ""),
+                    "autor": c.get("autor", ""),
+                    "fecha": c.get("fecha", ""),
+                    "reach": c.get("reach", None),
+                    "engagement": c.get("engagement", None),
+                }
+                for c in creados
+            ]
+            enviar_alertas_automatico(
+                proyecto_id=proyecto.id,
+                tipo_alerta="redes",
+                alertas=alertas,
+                usuario_id=sistema_user.id
+            )
 
         return Response(
             {
