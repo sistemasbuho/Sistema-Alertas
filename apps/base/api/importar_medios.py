@@ -89,18 +89,30 @@ class ImportarArticuloAPIView(APIView):
         print('PASA QAUI')
         print('PASA QAUI',proyecto.tipo_envio)
 
-        if proyecto.tipo_envio == "automatico":
+        if proyecto.tipo_envio == "automatico" and creados:
             enviar_api = EnviarMensajeAPIView()
-            request._full_data = {
+
+            # Simulamos un request para pasar los datos correctamente
+            simulated_request = HttpRequest()
+            simulated_request.method = "POST"
+            simulated_request.user = system_user
+            simulated_request._body = b""  # requerido por DRF internamente
+            simulated_request.data = {
                 "proyecto_id": proyecto.id,
-                "tipo_alerta": "medios",  # o "redes" según corresponda
-                "alertas": [{"id": c["id"], "url": c["url"], "contenido": c["titulo"]} for c in creados]
+                "tipo_alerta": "medios",
+                "alertas": [
+                    {"id": c["id"], "url": c["url"], "contenido": c["titulo"]}
+                    for c in creados
+                ],
             }
-            enviar_api.post(request)
+
+            enviar_api.post(simulated_request)
 
         return Response(
-            {"mensaje": f"{len(creados)} artículos creados.",
-             "creados": creados,
-             "errores": errores},
+            {
+                "mensaje": f"{len(creados)} artículos creados.",
+                "creados": creados,
+                "errores": errores
+            },
             status=201 if creados else 400
         )
