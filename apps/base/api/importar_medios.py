@@ -6,7 +6,7 @@ from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from apps.base.api.enviar_mensaje import EnviarMensajeAPIView
+from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView
 
 
 
