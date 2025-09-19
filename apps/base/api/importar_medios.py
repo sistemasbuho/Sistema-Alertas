@@ -13,10 +13,13 @@ from django.utils.timezone import now
 
 
 class ImportarArticuloAPIView(APIView):
+    print('INGRESA A LA CLASE--------------')
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
+        print('INGRESA A METODO--------------')
+
         # Validación de dominio
         origin = request.headers.get("X-Custom-Domain")
         if origin != "https://api.monitoreo.buho.media/":
