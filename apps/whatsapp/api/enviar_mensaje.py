@@ -11,6 +11,8 @@ from django.utils import timezone
 
 from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 from apps.proyectos.models import Proyecto
+from django.contrib.auth import get_user_model
+
 
 logger = logging.getLogger(__name__)
 
