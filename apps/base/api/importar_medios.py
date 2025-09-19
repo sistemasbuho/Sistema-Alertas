@@ -11,6 +11,8 @@ from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
 class ImportarArticuloAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         # Validación de dominio
@@ -28,17 +30,24 @@ class ImportarArticuloAPIView(APIView):
         creados = []
 
         if not proyecto_id or not articulos_data:
-            return Response(
-                {"error": "Se requieren 'proyecto_id' y 'articulos'"},
-                status=400
-            )
+            return Response({"error": "Se requieren 'proyecto_id' y 'articulos'"},
+                            status=400)
 
         proyecto = Proyecto.objects.filter(id=proyecto_id).first()
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
+        # obtener/crear usuario sistema (no dependemos de id fijo para no romper si cambian)
         User = get_user_model()
-        sistema_user = User.objects.get(id=2) 
+        sistema_user = User.objects.filter(id=2).first()
+        if not sistema_user:
+            sistema_user, _ = User.objects.get_or_create(
+                username="sistema",
+                defaults={"email": "sistema@buho.media", "first_name": "Sistema"}
+            )
+
+        # Usamos siempre el usuario de sistema (no hay autenticación para estas peticiones)
+        usuario_envio = sistema_user
 
         for data in articulos_data:
             titulo = data.get("titulo")
@@ -47,7 +56,7 @@ class ImportarArticuloAPIView(APIView):
             url = data.get("url")
             autor = data.get("autor")
             reach = data.get("reach")
-            
+
             if not url or not url.strip():
                 errores.append({"titulo": titulo, "error": "La URL es obligatoria"})
                 continue
@@ -56,7 +65,6 @@ class ImportarArticuloAPIView(APIView):
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
 
-            # Crear artículo asignando created_by al usuario “sistema”
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
@@ -65,15 +73,15 @@ class ImportarArticuloAPIView(APIView):
                 autor=autor,
                 reach=reach,
                 proyecto=proyecto,
-                created_by=sistema_user
+                created_by=usuario_envio
             )
 
-            # Crear detalle de envío
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
                 estado_revisado=False,
                 medio=articulo,
-                proyecto_id=proyecto.id 
+                proyecto_id=proyecto.id,
+                usuario=usuario_envio
             )
 
             creados.append({
@@ -82,9 +90,36 @@ class ImportarArticuloAPIView(APIView):
                 "url": articulo.url
             })
 
+        envio_resultado = None
+
+        # Si es automático enviamos UNA sola vez y con solo los IDs en 'alertas'
+        if proyecto.tipo_envio == "automatico" and creados:
+            enviar_api = EnviarMensajeAPIView()
+            fake_request = request._request  # HttpRequest subyacente
+            fake_request.user = usuario_envio  # evita que el logger lea 'AnonymousUser'
+            fake_request.data = {
+                "proyecto_id": str(proyecto.id),
+                "tipo_alerta": "medios",
+                "alertas": [{"id": c["id"]} for c in creados],
+            }
+            envio_resultado = enviar_api.post(request=fake_request).data
+
+        elif proyecto.tipo_envio == "manual" and creados:
+            for creado in creados:
+                DetalleEnvio.objects.filter(medio_id=creado["id"]).update(
+                    fecha_programada=timezone.now() + timedelta(hours=12)
+                )
+            envio_resultado = {
+                "estado": "manual_programado",
+                "detalle": f"Se programaron {len(creados)} artículos para envío"
+            }
+
         return Response(
-            {"mensaje": f"{len(creados)} artículos creados.",
-             "creados": creados,
-             "errores": errores},
-            status=201 if creados else 400
+            {
+                "mensaje": f"{len(creados)} artículos creados.",
+                "creados": creados,
+                "errores": errores,
+                "envio": envio_resultado if envio_resultado else "no_aplica",
+            },
+            status=201 if creados else 400,
         )

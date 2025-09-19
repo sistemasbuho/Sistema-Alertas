@@ -5,6 +5,8 @@ from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
 
 class ImportarRedesAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         origin = request.headers.get("X-Custom-Domain")
