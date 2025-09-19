@@ -98,4 +98,4 @@ class ImportarArticuloAPIView(APIView):
              "creados": creados,
              "errores": errores},
             status=201 if creados else 400
-        )s
+        )
