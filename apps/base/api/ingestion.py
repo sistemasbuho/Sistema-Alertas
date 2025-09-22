@@ -14,6 +14,7 @@ from django.utils.dateparse import parse_date, parse_datetime, parse_time
 from openpyxl import load_workbook
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.urls import NoReverseMatch, reverse
 
 from apps.base.models import Articulo, DetalleEnvio, Redes, RedesSociales
 from apps.proyectos.models import Proyecto
@@ -614,4 +615,55 @@ class IngestionAPIView(APIView):
             logger.warning("No fue posible notificar la ruta externa %s: %s", url, exc)
 
     def forward_payload(self, endpoint_name: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None):
-        raise NotImplementedError("La función forward_payload no está implementada.")
+        headers = headers.copy() if headers else {}
+
+        if "Authorization" not in headers and getattr(self.request, "META", None):
+            auth_header = self.request.META.get("HTTP_AUTHORIZATION")
+            if auth_header:
+                headers["Authorization"] = auth_header
+
+        try:
+            relative_url = reverse(endpoint_name)
+        except NoReverseMatch:
+            logger.error("No se encontró el endpoint '%s' para reenviar el payload", endpoint_name)
+            return Response(
+                {"detail": f"Endpoint '{endpoint_name}' no encontrado."},
+                status=500,
+            )
+
+        forward_base_url = getattr(settings, "INGESTION_FORWARD_BASE_URL", None)
+        if forward_base_url:
+            base_url = forward_base_url.rstrip("/")
+            target_url = f"{base_url}{relative_url}"
+        elif getattr(self, "request", None) is not None:
+            target_url = self.request.build_absolute_uri(relative_url)
+        else:
+            default_base = getattr(settings, "DEFAULT_DOMAIN", "http://localhost:8000")
+            target_url = f"{default_base.rstrip('/')}{relative_url}"
+
+        timeout = getattr(settings, "INGESTION_FORWARD_TIMEOUT", 10)
+
+        try:
+            response = requests.post(
+                target_url,
+                json=payload,
+                headers=headers or None,
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:  # pragma: no cover - network failure handling
+            logger.error(
+                "Error reenviando payload a '%s': %s",
+                target_url,
+                exc,
+            )
+            return Response(
+                {"detail": "No fue posible reenviar el payload."},
+                status=502,
+            )
+
+        try:
+            content = response.json()
+        except ValueError:
+            content = {"detail": response.text or "Respuesta vacía"}
+
+        return Response(content, status=response.status_code)
