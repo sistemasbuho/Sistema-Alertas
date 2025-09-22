@@ -49,7 +49,6 @@ class IngestionAPIView(APIView):
     }
 
     def post(self, request):
-        print('file------------',request.FILES)
 
         proyecto_id = request.query_params.get("proyecto")
         if not proyecto_id:
@@ -76,8 +75,6 @@ class IngestionAPIView(APIView):
         if not provider:
             return Response({"detail": "Encabezados no reconocidos para ningún proveedor."}, status=400)
         
-        print('pasa------------------')
-
         alertas = self._map_rows(provider, rows)
 
         payload = {
@@ -85,7 +82,6 @@ class IngestionAPIView(APIView):
             "proyecto": str(proyecto.id),
             "alertas": alertas,
         }
-        print('payload-------------------------',payload)
 
         endpoint_name = self.provider_endpoints[provider]
         return self.forward_payload(endpoint_name, payload, request)

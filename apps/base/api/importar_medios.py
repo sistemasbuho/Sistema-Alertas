@@ -15,10 +15,8 @@ class ImportarArticuloAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        # Validación de dominio
-        origin = request.headers.get("X-Custom-Domain")
-        if origin != "https://api.monitoreo.buho.media/":
-            return Response({"error": "Dominio no autorizado"}, status=403)
+        print('mediossss------------------------------------------------------------------------------')
+        print('request.data',request.data)
 
         proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
         articulos_data = self._obtener_articulos(request.data)
@@ -41,6 +39,7 @@ class ImportarArticuloAPIView(APIView):
 
         User = get_user_model()
         sistema_user = User.objects.get(id=2) 
+        print('lega aqui')
 
         for data in articulos_data:
             titulo = data.get("titulo")
@@ -106,6 +105,7 @@ class ImportarArticuloAPIView(APIView):
                 alertas=alertas,
                 usuario_id=sistema_user.id
             )
+        print('creados--------------',creados)
 
         return Response(
             {
