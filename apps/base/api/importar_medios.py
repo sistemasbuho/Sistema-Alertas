@@ -1,13 +1,16 @@
+import json
 from collections.abc import Iterable
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from django.contrib.auth import get_user_model
+from django.http import QueryDict, RawPostDataException
+from django.utils.timezone import now
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from apps.base.models import Articulo, DetalleEnvio
 from apps.proyectos.models import Proyecto
-from rest_framework.views import APIView
-from django.contrib.auth import get_user_model
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
-from django.utils.timezone import now
 
 
 class ImportarArticuloAPIView(APIView):
@@ -19,8 +22,11 @@ class ImportarArticuloAPIView(APIView):
         print("request.data:", request.data)
         print("request.FILES:", request.FILES)
 
-        proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
-        articulos_data = self._obtener_articulos(request.data)
+        payload = self._extraer_payload(request)
+        print("payload recibido:", payload)
+
+        proyecto_id = payload.get("proyecto_id") or payload.get("proyecto")
+        articulos_data = self._obtener_articulos(payload)
 
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
@@ -117,6 +123,78 @@ class ImportarArticuloAPIView(APIView):
             status=201 if creados else 400
         )
 
+    def _extraer_payload(self, request) -> Dict[str, Any]:
+        data = self._coerce_request_data(request)
+        if data:
+            return data
+
+        body = self._obtener_cuerpo(request)
+        parsed_body = self._parse_body(body)
+        if parsed_body is not None:
+            return parsed_body
+
+        return {}
+
+    def _obtener_cuerpo(self, request) -> bytes:
+        try:
+            django_request = getattr(request, "_request", request)
+            return django_request.body
+        except RawPostDataException:
+            return b""
+
+    def _coerce_request_data(self, request) -> Dict[str, Any]:
+        data: Any = getattr(request, "data", {})
+
+        if isinstance(data, QueryDict):
+            coerced: Dict[str, Any] = {}
+            for key, values in data.lists():
+                if not values:
+                    continue
+                if len(values) == 1:
+                    coerced[key] = self._parse_value(values[0])
+                else:
+                    coerced[key] = [self._parse_value(value) for value in values]
+            data = coerced
+        else:
+            data = self._parse_value(data)
+
+        if isinstance(data, list):
+            return {"alertas": data}
+
+        if isinstance(data, dict):
+            return data
+
+        return {}
+
+    def _parse_body(self, body: bytes) -> Optional[Dict[str, Any]]:
+        if not body:
+            return None
+
+        if isinstance(body, bytes):
+            try:
+                body = body.decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+
+        if isinstance(body, str):
+            body = body.strip()
+            if not body:
+                return None
+
+        try:
+            parsed = json.loads(body)
+        except (TypeError, json.JSONDecodeError):
+            return None
+
+        parsed = self._parse_value(parsed)
+
+        if isinstance(parsed, list):
+            return {"alertas": parsed}
+        if isinstance(parsed, dict):
+            return parsed
+
+        return None
+
     def _obtener_articulos(self, data: Any) -> List[Dict[str, Any]]:
         if hasattr(data, "getlist"):
             articulos = data.getlist("articulos") or []
@@ -146,3 +224,24 @@ class ImportarArticuloAPIView(APIView):
             "reach": alerta.get("reach"),
             "engagement": alerta.get("engagement") or alerta.get("engagement_rate"),
         }
+
+    def _parse_value(self, value: Any) -> Any:
+        if isinstance(value, (dict, list)):
+            return value
+
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode("utf-8")
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return value
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
+        return value
