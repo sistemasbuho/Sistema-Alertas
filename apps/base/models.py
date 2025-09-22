@@ -22,7 +22,6 @@ class BaseModel(IdToken):
         related_name='%(app_label)s_%(class)s_creado_por',
         null=True,
         blank=True,
-        default=None,
         on_delete=models.SET_NULL,
         editable=False
     )
@@ -32,7 +31,6 @@ class BaseModel(IdToken):
         related_name='%(app_label)s_%(class)s_modificado_por',
         null=True,
         blank=True,
-        default=None,
         on_delete=models.SET_NULL,
         editable=False
     )
@@ -57,11 +55,11 @@ class BaseModel(IdToken):
 
 
 class Articulo(BaseModel):
-    titulo = models.CharField(verbose_name="title", null=True, blank=True)
+    titulo = models.CharField(verbose_name="title", max_length=500, null=True, blank=True)
     contenido = models.TextField(verbose_name="content", null=True, blank=True)
     url = models.URLField(verbose_name="url",max_length=5000, unique=False, blank=True)
     fecha_publicacion = models.DateTimeField(verbose_name="Publicado", null=True, blank=True)
-    autor = models.CharField(verbose_name="title", null=True, blank=True)
+    autor = models.CharField(verbose_name="title", max_length=255, null=True, blank=True)
     reach = models.IntegerField("reach", null=True, blank=True)
     proyecto = models.ForeignKey(
         "proyectos.Proyecto", 

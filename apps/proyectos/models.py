@@ -112,7 +112,6 @@ class Proyecto(models.Model):
         related_name='%(app_label)s_%(class)s_creado_por',
         null=True,
         blank=True,
-        default=None,
         on_delete=models.SET_NULL,
         editable=False
     )
@@ -122,7 +121,6 @@ class Proyecto(models.Model):
         related_name='%(app_label)s_%(class)s_modificado_por',
         null=True,
         blank=True,
-        default=None,
         on_delete=models.SET_NULL,
         editable=False
     )
