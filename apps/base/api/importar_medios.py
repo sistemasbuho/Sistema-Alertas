@@ -15,8 +15,9 @@ class ImportarArticuloAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        print('mediossss------------------------------------------------------------------------------')
-        print('request.data',request.data)
+        print("✅ Llegó a ImportarArticuloAPIView")
+        print("request.data:", request.data)
+        print("request.FILES:", request.FILES)
 
         proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
         articulos_data = self._obtener_articulos(request.data)

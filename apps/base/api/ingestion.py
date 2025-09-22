@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 from openpyxl import load_workbook
+from rest_framework.request import Request
+
 
 from apps.proyectos.models import Proyecto
 
@@ -49,8 +51,8 @@ class IngestionAPIView(APIView):
     }
 
     def post(self, request):
-
-        proyecto_id = request.query_params.get("proyecto")
+        # Obtener el proyecto_id del POST (React) o de query params
+        proyecto_id = request.POST.get("proyecto_id") or request.query_params.get("proyecto")
         if not proyecto_id:
             return Response({"detail": "Se requiere el parámetro 'proyecto'."}, status=400)
 
@@ -58,25 +60,30 @@ class IngestionAPIView(APIView):
         if not proyecto:
             return Response({"detail": "Proyecto no encontrado."}, status=404)
 
-        if "file" not in request.FILES and "archivo" not in request.FILES:
+        # Obtener archivo
+        archivo = request.FILES.get("file") or request.FILES.get("archivo")
+        if not archivo:
             return Response({"detail": "Se requiere un archivo."}, status=400)
 
-        archivo = request.FILES.get("file") or request.FILES.get("archivo")
-
+        # Validar extensión
         extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
             return Response({"detail": "Formato de archivo no soportado."}, status=400)
 
+        # Parsear archivo
         headers, rows = self._parse_file(archivo, extension)
         if not headers:
             return Response({"detail": "El archivo no contiene encabezados."}, status=400)
 
+        # Detectar proveedor
         provider = self._detect_provider(headers)
         if not provider:
             return Response({"detail": "Encabezados no reconocidos para ningún proveedor."}, status=400)
-        
+
+        # Mapear filas a alertas
         alertas = self._map_rows(provider, rows)
 
+        # Preparar payload para la vista interna
         payload = {
             "proveedor": provider,
             "proyecto": str(proyecto.id),
@@ -86,6 +93,8 @@ class IngestionAPIView(APIView):
         endpoint_name = self.provider_endpoints[provider]
         return self.forward_payload(endpoint_name, payload, request)
 
+
+    
     def forward_payload(self, endpoint_name: str, payload: Dict, request) -> Response:
         url = reverse(endpoint_name)
         resolver_match = resolve(url)
@@ -94,13 +103,18 @@ class IngestionAPIView(APIView):
             view = resolver_match.func
         else:
             view = view_class.as_view()
+
         factory = APIRequestFactory()
         internal_request = factory.post(url, payload, format="json")
+        # copiar user y auth del request original
         internal_request.user = getattr(request, "user", None)
         internal_request.auth = getattr(request, "auth", None)
         internal_request.META.update(request.META)
+
+        # llamar la vista directamente con el HttpRequest generado por APIRequestFactory
         response = view(internal_request, *resolver_match.args, **resolver_match.kwargs)
         return response
+
 
     def _parse_file(self, uploaded_file, extension: str) -> Tuple[List[str], List[Dict]]:
         if extension == ".csv":
