@@ -15,7 +15,7 @@ from openpyxl import load_workbook
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.base.models import Articulo, Redes, RedesSociales
+from apps.base.models import Articulo, DetalleEnvio, Redes, RedesSociales
 from apps.proyectos.models import Proyecto
 
 
@@ -256,6 +256,13 @@ class IngestionAPIView(APIView):
                 proyecto=proyecto,
                 created_by=sistema_user,
             )
+
+            DetalleEnvio.objects.create(
+                estado_enviado=False,
+                estado_revisado=False,
+                medio=articulo,
+                proyecto=proyecto,
+            )
         return articulo
 
     def _crear_red_social(self, registro: Dict[str, Any], proyecto: Proyecto) -> Redes:
@@ -277,6 +284,13 @@ class IngestionAPIView(APIView):
                 reach=registro.get("reach"),
                 engagement=registro.get("engagement"),
                 red_social=red_social_obj,
+                proyecto=proyecto,
+            )
+
+            DetalleEnvio.objects.create(
+                estado_enviado=False,
+                estado_revisado=False,
+                red_social=red,
                 proyecto=proyecto,
             )
         return red
