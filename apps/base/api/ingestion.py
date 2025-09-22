@@ -53,6 +53,7 @@ class IngestionAPIView(APIView):
     permission_classes: list = []
 
     def post(self, request):
+        inicio = timezone.now()
         proyecto = self._obtener_proyecto(request)
         if proyecto is None:
             return Response({"detail": "Proyecto no encontrado o no indicado."}, status=400)
@@ -79,11 +80,19 @@ class IngestionAPIView(APIView):
             return Response({"detail": "No se encontraron filas válidas en el archivo."}, status=400)
 
         resultado = self._persistir_registros(registros_estandar, proyecto)
+        fin = timezone.now()
 
         respuesta = {
             "mensaje": f"{len(resultado['listado'])} registros creados",
             "listado": resultado["listado"],
             "errores": resultado["errores"],
+            "archivo": archivo.name,
+            "registros_procesados": {
+                "medios": resultado["conteos"].get("medios", 0),
+                "redes": resultado["conteos"].get("redes", 0),
+            },
+            "duplicados": resultado["duplicados"],
+            "tiempo_procesamiento": (fin - inicio).total_seconds(),
         }
 
         self._notificar_ruta_externa(respuesta)
@@ -222,23 +231,37 @@ class IngestionAPIView(APIView):
     # ------------------------------------------------------------------
     # Persistencia y serialización
     # ------------------------------------------------------------------
-    def _persistir_registros(self, registros: List[Dict[str, Any]], proyecto: Proyecto) -> Dict[str, List[Dict[str, Any]]]:
+    def _persistir_registros(self, registros: List[Dict[str, Any]], proyecto: Proyecto) -> Dict[str, Any]:
         errores: List[Dict[str, Any]] = []
         listado: List[Dict[str, Any]] = []
         sistema_user = self._obtener_usuario_sistema()
+        conteos = {"medios": 0, "redes": 0}
+        duplicados = False
 
         for indice, registro in enumerate(registros, start=1):
             try:
                 if registro.get("tipo") == "articulo":
                     articulo = self._crear_articulo(registro, proyecto, sistema_user)
                     listado.append(self._serializar_articulo(articulo))
+                    conteos["medios"] += 1
                 else:
                     red = self._crear_red_social(registro, proyecto)
                     listado.append(self._serializar_red(red))
+                    conteos["redes"] += 1
+            except ValueError as exc:
+                if "ya existe" in str(exc).lower():
+                    duplicados = True
+                logger.warning("Error de validación en fila %s: %s", indice, exc)
+                errores.append({"fila": indice, "error": str(exc)})
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Error procesando fila %s", indice)
                 errores.append({"fila": indice, "error": str(exc)})
-        return {"listado": listado, "errores": errores}
+        return {
+            "listado": listado,
+            "errores": errores,
+            "conteos": conteos,
+            "duplicados": duplicados,
+        }
 
     def _crear_articulo(self, registro: Dict[str, Any], proyecto: Proyecto, sistema_user) -> Articulo:
         with transaction.atomic():
