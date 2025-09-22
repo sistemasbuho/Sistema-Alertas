@@ -49,6 +49,7 @@ class IngestionAPIView(APIView):
     }
 
     def post(self, request):
+
         proyecto_id = request.query_params.get("proyecto")
         if not proyecto_id:
             return Response({"detail": "Se requiere el parámetro 'proyecto'."}, status=400)
@@ -57,10 +58,12 @@ class IngestionAPIView(APIView):
         if not proyecto:
             return Response({"detail": "Proyecto no encontrado."}, status=404)
 
-        if not request.FILES:
+        if 'file' not in request.FILES:
             return Response({"detail": "Se requiere un archivo."}, status=400)
 
-        uploaded_file = next(iter(request.FILES.values()))
+        archivo = request.FILES['file']
+
+        uploaded_file = next(iter(archivo.values()))
         extension = os.path.splitext(uploaded_file.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
             return Response({"detail": "Formato de archivo no soportado."}, status=400)
