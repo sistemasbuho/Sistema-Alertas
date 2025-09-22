@@ -88,13 +88,18 @@ class IngestionAPIView(APIView):
 
     def forward_payload(self, endpoint_name: str, payload: Dict, request) -> Response:
         url = reverse(endpoint_name)
-        view = resolve(url).func
+        resolver_match = resolve(url)
+        view_class = getattr(resolver_match.func, "view_class", None)
+        if view_class is None:
+            view = resolver_match.func
+        else:
+            view = view_class.as_view()
         factory = APIRequestFactory()
         internal_request = factory.post(url, payload, format="json")
         internal_request.user = getattr(request, "user", None)
         internal_request.auth = getattr(request, "auth", None)
         internal_request.META.update(request.META)
-        response = view(internal_request)
+        response = view(internal_request, *resolver_match.args, **resolver_match.kwargs)
         return response
 
     def _parse_file(self, uploaded_file, extension: str) -> Tuple[List[str], List[Dict]]:
