@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterable
 from typing import Any, Dict, List
 
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
 from django.utils.timezone import now
+from django.http import QueryDict
 
 
 class ImportarArticuloAPIView(APIView):
@@ -19,8 +21,11 @@ class ImportarArticuloAPIView(APIView):
         print("request.data:", request.data)
         print("request.FILES:", request.FILES)
 
-        proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
-        articulos_data = self._obtener_articulos(request.data)
+        payload = self._extraer_payload(request)
+        print("payload recibido:", payload)
+
+        proyecto_id = payload.get("proyecto_id") or payload.get("proyecto")
+        articulos_data = self._obtener_articulos(payload)
 
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
@@ -117,6 +122,42 @@ class ImportarArticuloAPIView(APIView):
             status=201 if creados else 400
         )
 
+    def _extraer_payload(self, request) -> Dict[str, Any]:
+        data: Any = request.data
+
+        if isinstance(data, QueryDict):
+            data = {
+                key: [self._parse_value(v) for v in values] if len(values) > 1 else self._parse_value(values[0])
+                for key, values in data.lists()
+            }
+
+        if data:
+            return data
+
+        body = request.body
+        if not body:
+            return {}
+
+        if isinstance(body, bytes):
+            try:
+                body = body.decode("utf-8")
+            except UnicodeDecodeError:
+                return {}
+
+        try:
+            parsed = json.loads(body)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
+        parsed = self._parse_value(parsed)
+
+        if isinstance(parsed, list):
+            return {"alertas": parsed}
+        if isinstance(parsed, dict):
+            return parsed
+
+        return {}
+
     def _obtener_articulos(self, data: Any) -> List[Dict[str, Any]]:
         if hasattr(data, "getlist"):
             articulos = data.getlist("articulos") or []
@@ -146,3 +187,24 @@ class ImportarArticuloAPIView(APIView):
             "reach": alerta.get("reach"),
             "engagement": alerta.get("engagement") or alerta.get("engagement_rate"),
         }
+
+    def _parse_value(self, value: Any) -> Any:
+        if isinstance(value, (dict, list)):
+            return value
+
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode("utf-8")
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return value
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
+        return value
