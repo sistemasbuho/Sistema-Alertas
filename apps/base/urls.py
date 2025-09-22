@@ -24,10 +24,12 @@ urlpatterns = [
 
 
     path('redes/importar-redes/', ImportarRedesAPIView.as_view(), name='importar-redes'),
+    path('redes/ingestion/', ImportarRedesAPIView.as_view(), name='redes-alertas-ingestion'),
     path('redes/', RedesListAPIView.as_view(), name='redes-list'),
     path("redes/<uuid:pk>/", RedesUpdateAPIView.as_view(), name="redes-update"),
 
     path('medios/importar-articulos/', ImportarArticuloAPIView.as_view(), name='importar-articulo'),
+    path('medios/ingestion/', ImportarArticuloAPIView.as_view(), name='medios-alertas-ingestion'),
     path('medios/', MediosListAPIView.as_view(), name='medios-list'),
     path("medios/<uuid:pk>/", MediosUpdateAPIView.as_view(), name="update-medio"),
     path("ingestion/", IngestionAPIView.as_view(), name="ingestion"),

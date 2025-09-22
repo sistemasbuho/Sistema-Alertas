@@ -1,16 +1,12 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from collections.abc import Iterable
+from typing import Any, Dict, List
+
 from rest_framework.response import Response
-from apps.base.models import Articulo,Redes,DetalleEnvio
+from apps.base.models import Articulo, DetalleEnvio
 from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
-from django.utils import timezone
-from apps.whatsapp.api.enviar_mensaje import EnviarMensajeAPIView,enviar_alertas_automatico
-
-
-
-
+from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
 from django.utils.timezone import now
 
 
@@ -24,8 +20,8 @@ class ImportarArticuloAPIView(APIView):
         if origin != "https://api.monitoreo.buho.media/":
             return Response({"error": "Dominio no autorizado"}, status=403)
 
-        proyecto_id = request.data.get("proyecto_id")
-        articulos_data = request.data.get("articulos", [])
+        proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
+        articulos_data = self._obtener_articulos(request.data)
 
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
@@ -35,7 +31,7 @@ class ImportarArticuloAPIView(APIView):
 
         if not proyecto_id or not articulos_data:
             return Response(
-                {"error": "Se requieren 'proyecto_id' y 'articulos'"},
+                {"error": "Se requieren 'proyecto_id' y 'alertas'"},
                 status=400
             )
 
@@ -50,15 +46,12 @@ class ImportarArticuloAPIView(APIView):
             titulo = data.get("titulo")
             contenido = data.get("contenido")
             fecha = data.get("fecha")
-            url = data.get("url")
+            url = (data.get("url") or "").strip()
             autor = data.get("autor")
             reach = data.get("reach")
-            
-            if not url or not url.strip():
-                errores.append({"titulo": titulo, "error": "La URL es obligatoria"})
-                continue
+            engagement = data.get("engagement")
 
-            if Articulo.objects.filter(url=url, proyecto=proyecto).exists():
+            if url and Articulo.objects.filter(url=url, proyecto=proyecto).exists():
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
 
@@ -66,7 +59,7 @@ class ImportarArticuloAPIView(APIView):
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
-                url=url.strip(),
+                url=url,
                 fecha_publicacion=fecha if fecha else now(),
                 autor=autor,
                 reach=reach,
@@ -79,13 +72,18 @@ class ImportarArticuloAPIView(APIView):
                 estado_enviado=False,
                 estado_revisado=False,
                 medio=articulo,
-                proyecto_id=proyecto.id 
+                proyecto_id=proyecto.id
             )
 
             creados.append({
                 "id": articulo.id,
                 "titulo": articulo.titulo,
-                "url": articulo.url
+                "url": articulo.url,
+                "contenido": articulo.contenido,
+                "autor": articulo.autor,
+                "fecha": articulo.fecha_publicacion.isoformat() if articulo.fecha_publicacion else None,
+                "reach": articulo.reach,
+                "engagement": engagement,
             })
 
         if proyecto.tipo_envio == "automatico" and creados:
@@ -93,12 +91,12 @@ class ImportarArticuloAPIView(APIView):
                 {
                     "id": c["id"],
                     "url": c["url"],
-                    "contenido": c["titulo"],  # contenido real del mensaje
+                    "contenido": c.get("contenido") or c.get("titulo"),
                     "titulo": c.get("titulo"),
                     "autor": c.get("autor"),
                     "fecha": c.get("fecha"),
                     "reach": c.get("reach"),
-                    "engagement": c.get("engagement", None)
+                    "engagement": c.get("engagement"),
                 }
                 for c in creados
             ]
@@ -110,8 +108,40 @@ class ImportarArticuloAPIView(APIView):
             )
 
         return Response(
-            {"mensaje": f"{len(creados)} artículos creados.",
-             "creados": creados,
-             "errores": errores},
+            {
+                "mensaje": f"{len(creados)} artículos creados.",
+                "creados": creados,
+                "errores": errores
+            },
             status=201 if creados else 400
         )
+
+    def _obtener_articulos(self, data: Any) -> List[Dict[str, Any]]:
+        if hasattr(data, "getlist"):
+            articulos = data.getlist("articulos") or []
+        else:
+            articulos = data.get("articulos", [])
+
+        alertas = data.get("alertas") if isinstance(data, dict) else data.get("alertas", [])
+
+        if alertas:
+            alertas_iterable: Iterable = alertas if isinstance(alertas, Iterable) and not isinstance(alertas, (str, bytes, dict)) else [alertas]
+            if isinstance(alertas, dict):
+                alertas_iterable = [alertas]
+            articulos = [self._map_alerta_to_articulo(alerta) for alerta in alertas_iterable]
+
+        if isinstance(articulos, dict):
+            articulos = [articulos]
+
+        return list(articulos)
+
+    def _map_alerta_to_articulo(self, alerta: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "titulo": alerta.get("titulo") or alerta.get("title"),
+            "contenido": alerta.get("contenido") or alerta.get("content"),
+            "fecha": alerta.get("fecha") or alerta.get("published"),
+            "url": alerta.get("url") or alerta.get("link"),
+            "autor": alerta.get("autor") or alerta.get("autor_name"),
+            "reach": alerta.get("reach"),
+            "engagement": alerta.get("engagement") or alerta.get("engagement_rate"),
+        }
