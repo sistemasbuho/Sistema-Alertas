@@ -14,7 +14,6 @@ class ImportarRedesAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        print('redes','------------------------------------------------------------------------------')
 
         proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
         redes_data = self._obtener_redes(request.data)
@@ -111,7 +110,7 @@ class ImportarRedesAPIView(APIView):
                 usuario_id=sistema_user.id
             )
 
-        print('creados--------------',creados)
+        
         return Response(
             {
                 "mensaje": f"{len(creados)} publicaciones creadas.",

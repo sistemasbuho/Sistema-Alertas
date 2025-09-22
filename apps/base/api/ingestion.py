@@ -51,8 +51,8 @@ class IngestionAPIView(APIView):
     }
 
     def post(self, request):
-        # Obtener el proyecto_id del POST (React) o de query params
-        proyecto_id = request.POST.get("proyecto_id") or request.query_params.get("proyecto")
+
+        proyecto_id = request.query_params.get("proyecto")
         if not proyecto_id:
             return Response({"detail": "Se requiere el parámetro 'proyecto'."}, status=400)
 
@@ -60,30 +60,26 @@ class IngestionAPIView(APIView):
         if not proyecto:
             return Response({"detail": "Proyecto no encontrado."}, status=404)
 
-        # Obtener archivo
-        archivo = request.FILES.get("file") or request.FILES.get("archivo")
-        if not archivo:
+        if "file" not in request.FILES and "archivo" not in request.FILES:
             return Response({"detail": "Se requiere un archivo."}, status=400)
 
-        # Validar extensión
+        archivo = request.FILES.get("file") or request.FILES.get("archivo")
+
         extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
             return Response({"detail": "Formato de archivo no soportado."}, status=400)
 
-        # Parsear archivo
         headers, rows = self._parse_file(archivo, extension)
         if not headers:
             return Response({"detail": "El archivo no contiene encabezados."}, status=400)
 
-        # Detectar proveedor
         provider = self._detect_provider(headers)
         if not provider:
             return Response({"detail": "Encabezados no reconocidos para ningún proveedor."}, status=400)
-
-        # Mapear filas a alertas
+        
         alertas = self._map_rows(provider, rows)
 
-        # Preparar payload para la vista interna
+
         payload = {
             "proveedor": provider,
             "proyecto": str(proyecto.id),
@@ -92,7 +88,6 @@ class IngestionAPIView(APIView):
 
         endpoint_name = self.provider_endpoints[provider]
         return self.forward_payload(endpoint_name, payload, request)
-
 
     
     def forward_payload(self, endpoint_name: str, payload: Dict, request) -> Response:
