@@ -43,9 +43,9 @@ class IngestionAPIView(APIView):
     authentication_classes: list = []
     permission_classes: list = []
     provider_endpoints = {
-        "medios_twk": "ingestion",
-        "redes_twk": "ingestion",
-        "determ": "ingestion",
+        "medios_twk": "medios-alertas-ingestion",
+        "redes_twk": "redes-alertas-ingestion",
+        "determ": "redes-alertas-ingestion",
     }
 
     def post(self, request):
@@ -59,10 +59,10 @@ class IngestionAPIView(APIView):
         if not proyecto:
             return Response({"detail": "Proyecto no encontrado."}, status=404)
 
-        if 'file' not in request.FILES:
+        if "file" not in request.FILES and "archivo" not in request.FILES:
             return Response({"detail": "Se requiere un archivo."}, status=400)
 
-        archivo = request.FILES['file']
+        archivo = request.FILES.get("file") or request.FILES.get("archivo")
 
         extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
@@ -159,11 +159,12 @@ class IngestionAPIView(APIView):
 
     def _map_medios_twk(self, row: Dict) -> Dict:
         return {
-            "title": row.get("title"),
-            "content": row.get("content"),
-            "published": row.get("published"),
-            "autor_name": row.get("extra_author_attributes.name"),
+            "titulo": row.get("title"),
+            "contenido": row.get("content"),
+            "fecha": row.get("published"),
+            "autor": row.get("extra_author_attributes.name"),
             "reach": row.get("reach"),
+            "url": row.get("url") or row.get("link"),
         }
 
     def _map_redes_twk(self, row: Dict) -> Dict:
@@ -171,8 +172,10 @@ class IngestionAPIView(APIView):
             "contenido": row.get("content"),
             "fecha": row.get("published"),
             "autor": row.get("extra_author_attributes.name"),
-            "alcance": row.get("reach"),
-            "engammet": row.get("engagement"),
+            "reach": row.get("reach"),
+            "engagement": row.get("engagement"),
+            "url": row.get("url") or row.get("link"),
+            "red_social": row.get("red_social"),
         }
 
     def _map_determ(self, row: Dict) -> Dict:
@@ -181,8 +184,10 @@ class IngestionAPIView(APIView):
             "contenido": row.get("MENTION_SNIPPET"),
             "fecha": fecha,
             "reach": row.get("REACH"),
-            "engagement_rate": row.get("ENGAGEMENT_RATE"),
+            "engagement": row.get("ENGAGEMENT_RATE"),
             "autor": row.get("AUTHOR"),
+            "url": row.get("URL"),
+            "red_social": row.get("SOCIAL_NETWORK"),
         }
 
     def _combine_fecha(self, fecha_value, hora_value) -> str:
