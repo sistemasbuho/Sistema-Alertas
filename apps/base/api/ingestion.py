@@ -47,7 +47,6 @@ class IngestionAPIView(APIView):
         "redes_twk": "ingestion",
         "determ": "ingestion",
     }
-
     def post(self, request):
 
         proyecto_id = request.query_params.get("proyecto")
@@ -61,14 +60,13 @@ class IngestionAPIView(APIView):
         if 'file' not in request.FILES:
             return Response({"detail": "Se requiere un archivo."}, status=400)
 
-        archivo = request.FILES['file']
+        archivo = request.FILES['file']  # ya es un InMemoryUploadedFile
 
-        uploaded_file = next(iter(archivo.values()))
-        extension = os.path.splitext(uploaded_file.name)[1].lower()
+        extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
             return Response({"detail": "Formato de archivo no soportado."}, status=400)
 
-        headers, rows = self._parse_file(uploaded_file, extension)
+        headers, rows = self._parse_file(archivo, extension)
         if not headers:
             return Response({"detail": "El archivo no contiene encabezados."}, status=400)
 
@@ -83,7 +81,6 @@ class IngestionAPIView(APIView):
             "proyecto": str(proyecto.id),
             "alertas": alertas,
         }
-
         endpoint_name = self.provider_endpoints[provider]
         return self.forward_payload(endpoint_name, payload, request)
 
