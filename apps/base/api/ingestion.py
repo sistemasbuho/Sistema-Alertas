@@ -43,9 +43,9 @@ class IngestionAPIView(APIView):
     authentication_classes: list = []
     permission_classes: list = []
     provider_endpoints = {
-        "medios_twk": "medios-alertas-ingestion",
-        "redes_twk": "redes-alertas-ingestion",
-        "determ": "redes-alertas-ingestion",
+        "medios_twk": "ingestion",
+        "redes_twk": "ingestion",
+        "determ": "ingestion",
     }
 
     def post(self, request):
