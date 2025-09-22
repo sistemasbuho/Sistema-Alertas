@@ -53,6 +53,12 @@ PROVEEDORES_NOMBRES = {
     "determ": "determ",
 }
 
+PROVEEDORES_ENDPOINTS = {
+    "medios": "medios-alertas-ingestion",
+    "redes": "redes-alertas-ingestion",
+    "determ": "redes-alertas-ingestion",
+}
+
 CAMPOS_PRINCIPALES = {
     "medios": COLUMNAS_MEDIOS_TWK | {"url", "link"},
     "redes": COLUMNAS_REDES_TWK | {"url", "link", "red_social"},
@@ -68,6 +74,24 @@ class IngestionAPIView(APIView):
         proyecto = self._obtener_proyecto(request)
         if proyecto is None:
             return Response({"detail": "Proyecto no encontrado o no indicado."}, status=400)
+
+        registro_manual = self._obtener_registro_manual(request)
+        if registro_manual:
+            registros_estandar = [registro_manual]
+            resultado = self._persistir_registros(registros_estandar, proyecto)
+            respuesta = {
+                "proveedor": registros_estandar[0].get("proveedor"),
+                "mensaje": f"{len(resultado['listado'])} registros creados",
+                "listado": resultado["listado"],
+                "errores": resultado["errores"],
+            }
+
+            self._notificar_ruta_externa(respuesta)
+
+            return Response(
+                respuesta,
+                status=201 if resultado["listado"] else 400,
+            )
 
         archivo = self._obtener_archivo(request)
         if not archivo:
@@ -90,21 +114,13 @@ class IngestionAPIView(APIView):
         if not registros_estandar:
             return Response({"detail": "No se encontraron filas válidas en el archivo."}, status=400)
 
-        resultado = self._persistir_registros(registros_estandar, proyecto)
+        endpoint = PROVEEDORES_ENDPOINTS.get(provider)
+        if not endpoint:
+            return Response({"detail": "Proveedor no soportado."}, status=400)
 
-        respuesta = {
-            "proveedor": self._obtener_nombre_proveedor(provider),
-            "mensaje": f"{len(resultado['listado'])} registros creados",
-            "listado": resultado["listado"],
-            "errores": resultado["errores"],
-        }
+        payload = self._construir_payload_forward(provider, registros_estandar, proyecto)
 
-        self._notificar_ruta_externa(respuesta)
-
-        return Response(
-            respuesta,
-            status=201 if resultado["listado"] else 400,
-        )
+        return self.forward_payload(endpoint, payload, {})
 
     # ------------------------------------------------------------------
     # Extracción de datos de la request
@@ -124,6 +140,101 @@ class IngestionAPIView(APIView):
 
     def _obtener_archivo(self, request):
         return request.FILES.get("file") or request.FILES.get("archivo")
+
+    def _obtener_registro_manual(self, request) -> Optional[Dict[str, Any]]:
+        data_sources = [request.data, request.POST]
+        for data in data_sources:
+            if not hasattr(data, "get"):
+                continue
+
+            url = self._limpiar_url(self._obtener_valor_data(data, "url") or self._obtener_valor_data(data, "link"))
+            if not url:
+                continue
+
+            tipo = (self._obtener_valor_data(data, "tipo") or "articulo").strip().lower()
+            if tipo not in {"articulo", "red"}:
+                tipo = "articulo"
+
+            fecha_raw = (
+                self._obtener_valor_data(data, "fecha")
+                or self._obtener_valor_data(data, "published")
+                or self._obtener_valor_data(data, "fecha_publicacion")
+            )
+
+            registro: Dict[str, Any] = {
+                "tipo": tipo,
+                "titulo": self._limpiar_texto(
+                    self._obtener_valor_data(data, "titulo")
+                    or self._obtener_valor_data(data, "title")
+                ),
+                "contenido": self._limpiar_texto(
+                    self._obtener_valor_data(data, "contenido")
+                    or self._obtener_valor_data(data, "content")
+                ),
+                "fecha": self._parsear_datetime(fecha_raw) if fecha_raw else None,
+                "autor": self._limpiar_texto(
+                    self._obtener_valor_data(data, "autor")
+                    or self._obtener_valor_data(data, "extra_author_attributes.name")
+                ),
+                "reach": self._parsear_entero(self._obtener_valor_data(data, "reach")),
+                "engagement": self._parsear_entero(self._obtener_valor_data(data, "engagement")),
+                "url": url,
+                "red_social": self._limpiar_texto(
+                    self._obtener_valor_data(data, "red_social")
+                    or self._obtener_valor_data(data, "social_network")
+                ),
+                "proveedor": "manual",
+                "datos_adicionales": {},
+            }
+
+            adicionales = {}
+            for clave, valor in self._iterar_items_data(data):
+                if clave in {
+                    "url",
+                    "link",
+                    "proyecto",
+                    "proyecto_id",
+                    "tipo",
+                    "titulo",
+                    "title",
+                    "contenido",
+                    "content",
+                    "fecha",
+                    "published",
+                    "fecha_publicacion",
+                    "autor",
+                    "extra_author_attributes.name",
+                    "reach",
+                    "engagement",
+                    "red_social",
+                    "social_network",
+                }:
+                    continue
+                valor_normalizado = self._normalizar_valor_adicional(valor)
+                if valor_normalizado is not None:
+                    adicionales[clave] = valor_normalizado
+
+            if adicionales:
+                registro["datos_adicionales"] = adicionales
+
+            return registro
+
+        return None
+
+    def _obtener_valor_data(self, data, key):
+        valor = data.get(key)  # type: ignore[attr-defined]
+        if isinstance(valor, list):
+            return valor[0]
+        return valor
+
+    def _iterar_items_data(self, data):
+        if hasattr(data, "lists"):
+            for clave, valores in data.lists():  # type: ignore[attr-defined]
+                if not valores:
+                    continue
+                yield clave, valores[0] if len(valores) == 1 else valores
+        elif hasattr(data, "items"):
+            yield from data.items()  # type: ignore[attr-defined]
 
     # ------------------------------------------------------------------
     # Procesamiento de archivos
@@ -204,6 +315,39 @@ class IngestionAPIView(APIView):
             registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
             registros.append(registro)
         return registros
+
+    def _construir_payload_forward(
+        self,
+        provider: str,
+        registros: List[Dict[str, Any]],
+        proyecto: Proyecto,
+    ) -> Dict[str, Any]:
+        proveedor_nombre = registros[0].get("proveedor") or self._obtener_nombre_proveedor(provider)
+        alertas = []
+        for registro in registros:
+            alerta = {
+                "tipo": registro.get("tipo"),
+                "titulo": registro.get("titulo"),
+                "contenido": registro.get("contenido"),
+                "fecha": self._formatear_fecha_respuesta(registro.get("fecha")),
+                "autor": registro.get("autor"),
+                "reach": registro.get("reach"),
+                "engagement": registro.get("engagement"),
+                "url": registro.get("url"),
+                "red_social": registro.get("red_social"),
+                "datos_adicionales": registro.get("datos_adicionales") or {},
+            }
+            for campo in ("reach", "engagement"):
+                valor = alerta.get(campo)
+                if valor is not None and not isinstance(valor, str):
+                    alerta[campo] = str(valor)
+            alertas.append(alerta)
+
+        return {
+            "proveedor": proveedor_nombre,
+            "proyecto": str(proyecto.id),
+            "alertas": alertas,
+        }
 
     def _mapear_medios_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
         fecha = self._parsear_datetime(row.get("published"))
@@ -468,3 +612,6 @@ class IngestionAPIView(APIView):
             requests.post(url, json=payload, timeout=5)
         except requests.RequestException as exc:  # pylint: disable=broad-except
             logger.warning("No fue posible notificar la ruta externa %s: %s", url, exc)
+
+    def forward_payload(self, endpoint_name: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None):
+        raise NotImplementedError("La función forward_payload no está implementada.")
