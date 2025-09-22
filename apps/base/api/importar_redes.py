@@ -1,3 +1,4 @@
+import json
 from rest_framework.views import APIView
 from collections.abc import Iterable
 from typing import Any, Dict, List
@@ -8,6 +9,7 @@ from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
 from django.contrib.auth import get_user_model
+from django.http import QueryDict
 
 class ImportarRedesAPIView(APIView):
     authentication_classes = []
@@ -15,8 +17,11 @@ class ImportarRedesAPIView(APIView):
 
     def post(self, request):
 
-        proyecto_id = request.data.get("proyecto_id") or request.data.get("proyecto")
-        redes_data = self._obtener_redes(request.data)
+        payload = self._extraer_payload(request)
+        print("payload recibido:", payload)
+
+        proyecto_id = payload.get("proyecto_id") or payload.get("proyecto")
+        redes_data = self._obtener_redes(payload)
 
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
@@ -120,6 +125,42 @@ class ImportarRedesAPIView(APIView):
             status=201 if creados else 400
         )
 
+    def _extraer_payload(self, request) -> Dict[str, Any]:
+        data: Any = request.data
+
+        if isinstance(data, QueryDict):
+            data = {
+                key: [self._parse_value(v) for v in values] if len(values) > 1 else self._parse_value(values[0])
+                for key, values in data.lists()
+            }
+
+        if data:
+            return data
+
+        body = request.body
+        if not body:
+            return {}
+
+        if isinstance(body, bytes):
+            try:
+                body = body.decode("utf-8")
+            except UnicodeDecodeError:
+                return {}
+
+        try:
+            parsed = json.loads(body)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
+        parsed = self._parse_value(parsed)
+
+        if isinstance(parsed, list):
+            return {"alertas": parsed}
+        if isinstance(parsed, dict):
+            return parsed
+
+        return {}
+
     def _obtener_redes(self, data: Any) -> List[Dict[str, Any]]:
         if hasattr(data, "getlist"):
             redes = data.getlist("redes") or []
@@ -150,5 +191,26 @@ class ImportarRedesAPIView(APIView):
             "engagement": alerta.get("engagement") or alerta.get("engammet") or alerta.get("engagement_rate"),
             "red_social": alerta.get("red_social") or alerta.get("social_network") or alerta.get("SOCIAL_NETWORK"),
         }
+
+    def _parse_value(self, value: Any) -> Any:
+        if isinstance(value, (dict, list)):
+            return value
+
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode("utf-8")
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return value
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
+        return value
 
 

@@ -101,12 +101,10 @@ class IngestionAPIView(APIView):
 
         factory = APIRequestFactory()
         internal_request = factory.post(url, payload, format="json")
-        # copiar user y auth del request original
         internal_request.user = getattr(request, "user", None)
         internal_request.auth = getattr(request, "auth", None)
         internal_request.META.update(request.META)
 
-        # llamar la vista directamente con el HttpRequest generado por APIRequestFactory
         response = view(internal_request, *resolver_match.args, **resolver_match.kwargs)
         return response
 
