@@ -63,12 +63,11 @@ class IngestionAPIView(APIView):
 
         archivo = request.FILES['file']
 
-        uploaded_file = next(iter(archivo.values()))
-        extension = os.path.splitext(uploaded_file.name)[1].lower()
+        extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in {".csv", ".xlsx"}:
             return Response({"detail": "Formato de archivo no soportado."}, status=400)
 
-        headers, rows = self._parse_file(uploaded_file, extension)
+        headers, rows = self._parse_file(archivo, extension)
         if not headers:
             return Response({"detail": "El archivo no contiene encabezados."}, status=400)
 
