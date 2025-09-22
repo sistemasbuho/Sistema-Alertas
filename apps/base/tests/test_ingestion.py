@@ -52,7 +52,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(payload["proveedor"], "medios_twk")
         self.assertEqual(payload["proyecto"], self.proyecto_id)
         self.assertEqual(len(payload["alertas"]), 1)
-        self.assertEqual(payload["alertas"][0]["autor_name"], "Autor")
+        self.assertEqual(payload["alertas"][0]["autor"], "Autor")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_redes_twk_from_xlsx_and_forwards_payload(self, mock_proyecto):
@@ -101,4 +101,4 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(len(payload["alertas"]), 1)
         alerta = payload["alertas"][0]
         self.assertEqual(alerta["contenido"], "Hola")
-        self.assertEqual(alerta["engammet"], "42")
+        self.assertEqual(alerta["engagement"], "42")
