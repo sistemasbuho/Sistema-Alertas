@@ -5,7 +5,8 @@ from django.utils.timezone import now
 from datetime import datetime
 import logging
 import os
-import requests  
+from urllib.parse import urljoin
+import requests
 from rest_framework import status
 from django.utils import timezone
 
@@ -455,10 +456,19 @@ class EnviarMensajeAPIView(APIView):
                         detalle_envio.save()
                         no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
 
+        alertas_enviadas = [alerta for alerta in alertas if alerta.get("id") in enviados]
+        monitoreo_result = enviar_alertas_a_monitoreo(
+            proyecto_id=proyecto_id,
+            tipo_alerta=tipo_alerta,
+            alertas=alertas_enviadas,
+            grupo_id=grupo_id,
+        )
+
         return Response({
             "success": f"Se enviaron {len(enviados)} alertas",
             "enviados": enviados,
             "no_enviados": no_enviados,
+            "monitoreo": monitoreo_result,
         }, status=status.HTTP_200_OK)
 
 
@@ -586,8 +596,61 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
                     detalle_envio.save()
                     no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
 
+    alertas_enviadas = [alerta for alerta in alertas if alerta.get("id") in enviados]
+    monitoreo_result = enviar_alertas_a_monitoreo(
+        proyecto_id=proyecto_id,
+        tipo_alerta=tipo_alerta,
+        alertas=alertas_enviadas,
+        grupo_id=grupo_id,
+    )
+
     return {
         "success": f"Se enviaron {len(enviados)} alertas",
         "enviados": enviados,
         "no_enviados": no_enviados,
+        "monitoreo": monitoreo_result,
     }
+
+
+def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, alertas, grupo_id=None):
+    """Envía la información de alertas al servicio de monitoreo externo."""
+    if not alertas:
+        return {"detalle": "Sin alertas para enviar"}
+
+    base_url = os.getenv("MONITOREO_API_URL", "https://monitoreo.buho.media/")
+    endpoint = os.getenv("MONITOREO_API_ENDPOINT", "api/alertas/")
+    url = urljoin(base_url, endpoint)
+
+    payload = {
+        "proyecto_id": proyecto_id,
+        "tipo_alerta": tipo_alerta,
+        "alertas": alertas,
+    }
+
+    if grupo_id:
+        payload["grupo_id"] = grupo_id
+
+    headers = {"Content-Type": "application/json"}
+    token = os.getenv("MONITOREO_API_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.Timeout:
+        logger.error("Timeout al enviar alertas al servicio de monitoreo", exc_info=True)
+        return {"error": "timeout"}
+    except requests.HTTPError as exc:
+        logger.error(
+            "Respuesta inesperada del servicio de monitoreo", exc_info=True
+        )
+        return {"error": "http_error", "status_code": exc.response.status_code, "detalle": exc.response.text}
+    except requests.RequestException:
+        logger.error("No fue posible contactar el servicio de monitoreo", exc_info=True)
+        return {"error": "conexion"}
+
+    try:
+        return response.json()
+    except ValueError:
+        return {"status": "ok", "status_code": response.status_code}
