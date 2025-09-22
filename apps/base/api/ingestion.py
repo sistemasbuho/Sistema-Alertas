@@ -49,6 +49,7 @@ class IngestionAPIView(APIView):
     }
 
     def post(self, request):
+        print('file------------',request.FILES)
 
         proyecto_id = request.query_params.get("proyecto")
         if not proyecto_id:
