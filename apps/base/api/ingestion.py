@@ -47,6 +47,18 @@ COLUMNAS_DETERM = {
     "author",
 }
 
+PROVEEDORES_NOMBRES = {
+    "medios": "medios_twk",
+    "redes": "redes_twk",
+    "determ": "determ",
+}
+
+CAMPOS_PRINCIPALES = {
+    "medios": COLUMNAS_MEDIOS_TWK | {"url", "link"},
+    "redes": COLUMNAS_REDES_TWK | {"url", "link", "red_social"},
+    "determ": COLUMNAS_DETERM | {"url", "social_network"},
+}
+
 
 class IngestionAPIView(APIView):
     authentication_classes: list = []
@@ -81,6 +93,7 @@ class IngestionAPIView(APIView):
         resultado = self._persistir_registros(registros_estandar, proyecto)
 
         respuesta = {
+            "proveedor": self._obtener_nombre_proveedor(provider),
             "mensaje": f"{len(resultado['listado'])} registros creados",
             "listado": resultado["listado"],
             "errores": resultado["errores"],
@@ -170,6 +183,9 @@ class IngestionAPIView(APIView):
             return "determ"
         return ""
 
+    def _obtener_nombre_proveedor(self, provider: str) -> str:
+        return PROVEEDORES_NOMBRES.get(provider, provider)
+
     def _mapear_filas(self, provider: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         mapper = {
             "medios": self._mapear_medios_twk,
@@ -179,7 +195,15 @@ class IngestionAPIView(APIView):
         map_function = mapper.get(provider)
         if not map_function:
             return []
-        return [map_function(row) for row in rows]
+        campos_principales = CAMPOS_PRINCIPALES.get(provider, set())
+        nombre_proveedor = self._obtener_nombre_proveedor(provider)
+        registros: List[Dict[str, Any]] = []
+        for row in rows:
+            registro = map_function(row)
+            registro["proveedor"] = nombre_proveedor
+            registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
+            registros.append(registro)
+        return registros
 
     def _mapear_medios_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
         fecha = self._parsear_datetime(row.get("published"))
@@ -231,10 +255,10 @@ class IngestionAPIView(APIView):
             try:
                 if registro.get("tipo") == "articulo":
                     articulo = self._crear_articulo(registro, proyecto, sistema_user)
-                    listado.append(self._serializar_articulo(articulo))
+                    listado.append(self._serializar_articulo(articulo, registro))
                 else:
                     red = self._crear_red_social(registro, proyecto)
-                    listado.append(self._serializar_red(red))
+                    listado.append(self._serializar_red(red, registro))
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Error procesando fila %s", indice)
                 errores.append({"fila": indice, "error": str(exc)})
@@ -295,7 +319,7 @@ class IngestionAPIView(APIView):
             )
         return red
 
-    def _serializar_articulo(self, articulo: Articulo) -> Dict[str, Any]:
+    def _serializar_articulo(self, articulo: Articulo, registro: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "id": str(articulo.id),
             "tipo": "articulo",
@@ -307,9 +331,11 @@ class IngestionAPIView(APIView):
             "engagement": None,
             "url": articulo.url,
             "red_social": None,
+            "proveedor": registro.get("proveedor"),
+            "datos_adicionales": registro.get("datos_adicionales") or {},
         }
 
-    def _serializar_red(self, red: Redes) -> Dict[str, Any]:
+    def _serializar_red(self, red: Redes, registro: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "id": str(red.id),
             "tipo": "red",
@@ -321,6 +347,8 @@ class IngestionAPIView(APIView):
             "engagement": red.engagement,
             "url": red.url,
             "red_social": red.red_social.nombre if red.red_social else None,
+            "proveedor": registro.get("proveedor"),
+            "datos_adicionales": registro.get("datos_adicionales") or {},
         }
 
     # ------------------------------------------------------------------
@@ -408,6 +436,31 @@ class IngestionAPIView(APIView):
         if not value:
             return None
         return value.astimezone(timezone.get_current_timezone()).isoformat()
+
+    def _extraer_datos_adicionales(self, row: Dict[str, Any], campos_principales: Iterable[str]) -> Dict[str, Any]:
+        campos_base = set(campos_principales)
+        adicionales: Dict[str, Any] = {}
+        for key, value in row.items():
+            if key in campos_base:
+                continue
+            valor_limpio = self._normalizar_valor_adicional(value)
+            if valor_limpio is not None:
+                adicionales[key] = valor_limpio
+        return adicionales
+
+    def _normalizar_valor_adicional(self, value: Any) -> Optional[Any]:
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return self._formatear_fecha_respuesta(self._asegurar_timezone(value))
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, time):
+            return value.strftime("%H:%M:%S")
+        if isinstance(value, str):
+            texto = value.strip()
+            return texto or None
+        return value
 
     def _notificar_ruta_externa(self, payload: Dict[str, Any]) -> None:
         url = getattr(settings, "RUTA_X_URL", None) or "http://localhost:8000/ruta_x"
