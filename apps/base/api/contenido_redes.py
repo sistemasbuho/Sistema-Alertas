@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-_TWITTER_NAMES = {"twitter", "x"}
+_TWITTER_NAMES = {"Twitter", "x"}
 _KEYWORDS = ("QT", "Repost")
 
 
