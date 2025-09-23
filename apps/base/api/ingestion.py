@@ -3,6 +3,7 @@ import io
 import logging
 import os
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
@@ -70,13 +71,13 @@ PROVEEDORES_ENDPOINTS = {
     "determ": "redes-alertas-ingestion",
 }
 
-DOMINIOS_REDES_SOCIALES = (
-    "facebook.com",
-    "twitter.com",
-    "instagram.com",
-    "tiktok.com",
-    "youtube.com",
-)
+DOMINIOS_REDES_SOCIALES = {
+    "facebook.com": "Facebook",
+    "twitter.com": "Twitter",
+    "instagram.com": "Instagram",
+    "tiktok.com": "TikTok",
+    "youtube.com": "YouTube",
+}
 
 CAMPOS_PRINCIPALES = {
     "medios": COLUMNAS_MEDIOS_TWK | {"url", "link"},
@@ -373,7 +374,10 @@ class IngestionAPIView(APIView):
         domain_url = row.get("domain_url")
         if domain_url:
             domain_normalized = str(domain_url).lower()
-            if any(dominio in domain_normalized for dominio in DOMINIOS_REDES_SOCIALES):
+            if any(
+                dominio in domain_normalized
+                for dominio in DOMINIOS_REDES_SOCIALES.keys()
+            ):
                 return "redes"
 
         return "medios"
@@ -541,7 +545,39 @@ class IngestionAPIView(APIView):
             red_social_obj = None
             nombre_red = registro.get("red_social")
             if nombre_red:
-                red_social_obj = RedesSociales.objects.filter(nombre__iexact=nombre_red).first()
+                domain_parse = urlparse(nombre_red)
+                domain_candidate = (domain_parse.netloc or domain_parse.path or "").lower()
+                if domain_candidate.startswith("www."):
+                    domain_candidate = domain_candidate[4:]
+
+                candidate_names: List[str] = []
+                if domain_candidate:
+                    for dominio, nombre in DOMINIOS_REDES_SOCIALES.items():
+                        dominio_normalizado = dominio.lower()
+                        if dominio_normalizado.startswith("www."):
+                            dominio_normalizado = dominio_normalizado[4:]
+                        dominio_base = dominio_normalizado.split(".")[0]
+                        if dominio_normalizado and dominio_normalizado in domain_candidate:
+                            candidate_names.append(nombre)
+                        elif dominio_base and dominio_base in domain_candidate:
+                            candidate_names.append(nombre)
+
+                candidate_names.extend(
+                    [
+                        domain_candidate,
+                        domain_candidate.split(".")[0] if domain_candidate else "",
+                        str(nombre_red).strip(),
+                    ]
+                )
+
+                for nombre_candidato in dict.fromkeys(
+                    valor for valor in candidate_names if valor
+                ):
+                    red_social_obj = RedesSociales.objects.filter(
+                        nombre__iexact=nombre_candidato
+                    ).first()
+                    if red_social_obj:
+                        break
 
             red = Redes.objects.create(
                 contenido=registro.get("contenido"),
