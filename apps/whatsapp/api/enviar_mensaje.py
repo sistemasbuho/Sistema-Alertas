@@ -37,17 +37,33 @@ class BaseCapturaAlertasAPIView(APIView):
             return now()
 
 
-def formatear_mensaje(alerta, plantilla):
+def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
     """
     Genera un mensaje formateado aplicando la plantilla de estilos y orden.
     Funciona para alertas de medios o redes.
     """
     partes = []
 
+    plantilla_objetivo = (nombre_plantilla or "").strip().lower()
+    tipo_alerta_normalizado = (tipo_alerta or "").strip().lower()
+
     for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get('orden', 0)):
-        valor = alerta.get(campo) or alerta.get('mensaje')  # fallback a 'mensaje'
-        if not valor:
+        valor = alerta.get(campo)
+        if valor is None or valor == "":
+            valor = alerta.get('mensaje')  # fallback a 'mensaje'
+
+        if valor is None or valor == "":
             continue
+
+        valor_str = str(valor)
+
+        if plantilla_objetivo == "redes justa" and tipo_alerta_normalizado == "redes":
+            if campo == "reach" and valor_str:
+                valor_str = f"seguidores: {valor_str}"
+            elif campo == "engagement" and valor_str:
+                valor_str = f"reach: {valor_str}"
+
+        valor = valor_str
 
         estilo = conf.get('estilo', {})
         if estilo.get('negrita'):
@@ -90,9 +106,11 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
 
         # Obtener plantilla del proyecto
         plantilla = {}
+        plantilla_nombre = None
         template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
         if template_config:
             plantilla = template_config.config_campos
+            plantilla_nombre = template_config.nombre
 
         headers = {
             "Authorization": f"Bearer {self.access_key}",
@@ -122,7 +140,12 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             }
 
             # Formatear mensaje con la plantilla
-            mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
+            mensaje_formateado = formatear_mensaje(
+                alerta_data,
+                plantilla,
+                nombre_plantilla=plantilla_nombre,
+                tipo_alerta=tipo_alerta,
+            )
 
             # Crear o actualizar detalle de envío
             filtros = {"proyecto_id": proyecto_id}
@@ -216,9 +239,11 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
         proyecto = get_object_or_404(Proyecto, id=proyecto_id)
         
         plantilla_mensaje = {}
+        plantilla_nombre = None
         template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
         if template_config:
-            plantilla_mensaje = template_config.config_campos 
+            plantilla_mensaje = template_config.config_campos
+            plantilla_nombre = template_config.nombre
 
         procesadas = []
         duplicadas = []
@@ -245,19 +270,29 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
             fecha_pub = self._parse_fecha(record.get("fecha"))
             autor = record.get("autor")
             alcance = record.get("alcance")
+            reach = record.get("reach") or alcance
+            engagement = record.get("engagement")
 
-            procesadas.append({
-                "id" : record.get("id"),
+            alerta = {
+                "id": record.get("id"),
                 "titulo": titulo,
                 "url": url,
                 "mensaje": mensaje,
                 "fecha": fecha_pub,
                 "autor": autor,
-                "alcance": alcance
-            })
+                "alcance": alcance,
+                "reach": reach,
+                "engagement": engagement,
+            }
 
-            for alerta in procesadas:
-                alerta["mensaje_formateado"] = formatear_mensaje(alerta, plantilla_mensaje) 
+            alerta["mensaje_formateado"] = formatear_mensaje(
+                alerta,
+                plantilla_mensaje,
+                nombre_plantilla=plantilla_nombre,
+                tipo_alerta="redes",
+            )
+
+            procesadas.append(alerta)
 
         return Response({
             "procesadas": procesadas,
@@ -361,9 +396,11 @@ class EnviarMensajeAPIView(APIView):
 
         # Obtener plantilla del proyecto
         plantilla = {}
+        plantilla_nombre = None
         template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
         if template_config:
             plantilla = template_config.config_campos
+            plantilla_nombre = template_config.nombre
 
         headers = {
             "Authorization": f"Bearer {self.access_key}",
@@ -399,7 +436,12 @@ class EnviarMensajeAPIView(APIView):
 
             }
 
-            mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
+            mensaje_formateado = formatear_mensaje(
+                alerta_data,
+                plantilla,
+                nombre_plantilla=plantilla_nombre,
+                tipo_alerta=tipo_alerta,
+            )
             filtros = {"proyecto_id": proyecto_id}
             if tipo_alerta == "medios":
                 filtros["medio_id"] = alerta_id
@@ -506,9 +548,11 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
 
     # Obtener plantilla del proyecto
     plantilla = {}
+    plantilla_nombre = None
     template_config = TemplateConfig.objects.filter(proyecto_id=proyecto_id).first()
     if template_config:
         plantilla = template_config.config_campos
+        plantilla_nombre = template_config.nombre
 
     User = get_user_model()
     usuario = User.objects.get(id=usuario_id)
@@ -545,7 +589,12 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             "reach": reach,
             "engagement": engagement,
         }
-        mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
+        mensaje_formateado = formatear_mensaje(
+            alerta_data,
+            plantilla,
+            nombre_plantilla=plantilla_nombre,
+            tipo_alerta=tipo_alerta,
+        )
 
         # Crear o actualizar detalle de envío
         filtros = {"proyecto_id": proyecto_id}
