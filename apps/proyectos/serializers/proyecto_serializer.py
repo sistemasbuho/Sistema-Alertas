@@ -18,6 +18,7 @@ class ProyectoCreateSerializer(serializers.ModelSerializer):
             'tipo_alerta',
             'formato_mensaje',
             'keywords',
+            'criterios_aceptacion',
             'created_at',
             'modified_at',
         ]
@@ -45,6 +46,7 @@ class ProyectoUpdateSerializer(serializers.ModelSerializer):
             'tipo_alerta',
             'formato_mensaje',
             'keywords',
+            'criterios_aceptacion',
             'created_at',
             'modified_at',
         ]

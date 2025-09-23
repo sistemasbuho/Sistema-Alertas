@@ -103,6 +103,12 @@ class Proyecto(models.Model):
         null=True,
         help_text="Palabras clave separadas por comas para filtrar mensajes"
     )
+    criterios_aceptacion = models.TextField(
+        'Criterios de aceptación',
+        blank=True,
+        null=True,
+        help_text="Palabras clave separadas por comas para aceptar mensajes de ingestión",
+    )
 
     created_at = models.DateTimeField('Fecha de creación', auto_now_add=True, editable=False)
     modified_at = models.DateTimeField('Fecha de modificación', auto_now=True, editable=False)
@@ -154,5 +160,24 @@ class Proyecto(models.Model):
         """
         self.keywords = ', '.join([str(keyword).strip() for keyword in keywords_list])
 
+    def get_criterios_aceptacion_list(self):
+        """
+        Devuelve los criterios de aceptación como lista
+        """
+        if self.criterios_aceptacion:
+            return [
+                criterio.strip()
+                for criterio in self.criterios_aceptacion.split(',')
+                if criterio and criterio.strip()
+            ]
+        return []
+
+    def set_criterios_aceptacion(self, criterios_list):
+        """
+        Establece los criterios de aceptación desde una lista
+        """
+        self.criterios_aceptacion = ', '.join(
+            [str(criterio).strip() for criterio in criterios_list]
+        )
 
 
