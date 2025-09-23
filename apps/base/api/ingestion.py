@@ -145,9 +145,9 @@ class IngestionAPIView(APIView):
                 status=200,
             )
 
-        endpoint = PROVEEDORES_ENDPOINTS.get(provider)
-        if not endpoint:
-            return Response({"detail": "Proveedor no soportado."}, status=400)
+        # endpoint = PROVEEDORES_ENDPOINTS.get(provider)
+        # if not endpoint:
+        #     return Response({"detail": "Proveedor no soportado."}, status=400)
 
         payload = self._construir_payload_forward(provider, registros_filtrados, proyecto)
 
