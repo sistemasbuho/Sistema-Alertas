@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -14,12 +15,15 @@ class IngestionAPITests(SimpleTestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
         self.proyecto_id = "123e4567-e89b-12d3-a456-426614174000"
+        self.ultimo_registro_articulo = None
+        self.ultimo_registro_red = None
 
-    def _mock_proyecto(self, mock_proyecto, criterios=None):
+    def _mock_proyecto(self, mock_proyecto, criterios=None, tipo_alerta="medios"):
         criterios = criterios or []
         proyecto = SimpleNamespace(
             id=self.proyecto_id,
             get_criterios_aceptacion_list=lambda: criterios,
+            tipo_alerta=tipo_alerta,
         )
         mock_proyecto.objects.filter.return_value.first.return_value = proyecto
 
@@ -44,23 +48,28 @@ class IngestionAPITests(SimpleTestCase):
 
         with patch.object(
             IngestionAPIView,
-            "forward_payload",
-            return_value=Response({"ok": True}, status=202),
-        ) as mock_forward:
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
             response = IngestionAPIView.as_view()(request)
 
-        self.assertEqual(response.status_code, 202)
-        mock_forward.assert_called_once()
-        endpoint_name, payload, _ = mock_forward.call_args[0]
-        self.assertEqual(endpoint_name, "medios-alertas-ingestion")
-        self.assertEqual(payload["proveedor"], "medios_twk")
-        self.assertEqual(payload["proyecto"], self.proyecto_id)
-        self.assertEqual(len(payload["alertas"]), 1)
-        self.assertEqual(payload["alertas"][0]["autor"], "Autor")
+        self.assertEqual(response.status_code, 201)
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        self.assertEqual(listado[0]["autor"], "Autor")
+        self.assertEqual(listado[0]["tipo"], "medios")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_redes_twk_from_xlsx_and_forwards_payload(self, mock_proyecto):
-        self._mock_proyecto(mock_proyecto)
+        self._mock_proyecto(mock_proyecto, tipo_alerta="redes")
         from openpyxl import Workbook
 
         workbook = Workbook()
@@ -72,9 +81,10 @@ class IngestionAPITests(SimpleTestCase):
                 "extra_author_attributes.name",
                 "reach",
                 "engagement",
+                "red_social",
             ]
         )
-        sheet.append(["Hola", "2024-02-02", "User", "500", "42"])
+        sheet.append(["Hola", "2024-02-02", "User", "500", "42", "Twitter"])
         buffer = BytesIO()
         workbook.save(buffer)
         buffer.seek(0)
@@ -92,24 +102,32 @@ class IngestionAPITests(SimpleTestCase):
 
         with patch.object(
             IngestionAPIView,
-            "forward_payload",
-            return_value=Response({"ok": True}, status=201),
-        ) as mock_forward:
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
             response = IngestionAPIView.as_view()(request)
 
         self.assertEqual(response.status_code, 201)
-        mock_forward.assert_called_once()
-        endpoint_name, payload, _ = mock_forward.call_args[0]
-        self.assertEqual(endpoint_name, "redes-alertas-ingestion")
-        self.assertEqual(payload["proveedor"], "redes_twk")
-        self.assertEqual(len(payload["alertas"]), 1)
-        alerta = payload["alertas"][0]
-        self.assertEqual(alerta["contenido"], "Hola")
-        self.assertEqual(alerta["engagement"], "42")
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertIsNone(self.ultimo_registro_articulo)
+        self.assertIsNotNone(self.ultimo_registro_red)
+        self.assertEqual(alerta["contenido"], self.ultimo_registro_red.get("contenido"))
+        self.assertEqual(alerta["engagement"], self.ultimo_registro_red.get("engagement"))
+        self.assertEqual(alerta["tipo"], "redes")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_redes_twk_trim_contenido_for_twitter_qt(self, mock_proyecto):
-        self._mock_proyecto(mock_proyecto)
+        self._mock_proyecto(mock_proyecto, tipo_alerta="redes")
         from openpyxl import Workbook
 
         workbook = Workbook()
@@ -151,16 +169,25 @@ class IngestionAPITests(SimpleTestCase):
 
         with patch.object(
             IngestionAPIView,
-            "forward_payload",
-            return_value=Response({"ok": True}, status=201),
-        ) as mock_forward:
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
             response = IngestionAPIView.as_view()(request)
 
         self.assertEqual(response.status_code, 201)
-        mock_forward.assert_called_once()
-        alerta = mock_forward.call_args[0][1]["alertas"][0]
-        self.assertEqual(alerta["contenido"], "Mensaje inicial QT")
-        self.assertEqual(alerta["red_social"], "Twitter")
+        alerta = response.data["listado"][0]
+        self.assertIsNotNone(self.ultimo_registro_red)
+        self.assertEqual(alerta["contenido"], self.ultimo_registro_red.get("contenido"))
+        self.assertEqual(alerta["red_social"], None)
+        self.assertEqual(alerta["tipo"], "redes")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
@@ -184,16 +211,23 @@ class IngestionAPITests(SimpleTestCase):
 
         with patch.object(
             IngestionAPIView,
-            "forward_payload",
-            return_value=Response({"ok": True}, status=202),
-        ) as mock_forward:
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
             response = IngestionAPIView.as_view()(request)
 
-        self.assertEqual(response.status_code, 202)
-        mock_forward.assert_called_once()
-        payload = mock_forward.call_args[0][1]
-        self.assertEqual(len(payload["alertas"]), 1)
-        self.assertEqual(payload["alertas"][0]["titulo"], "Alerta importante")
+        self.assertEqual(response.status_code, 201)
+        payload = response.data
+        self.assertEqual(len(payload["listado"]), 1)
+        self.assertEqual(payload["listado"][0]["titulo"], "Alerta importante")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_filtro_de_criterios_sin_coincidencias_no_reenvia(self, mock_proyecto):
@@ -223,5 +257,60 @@ class IngestionAPITests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         mock_forward.assert_not_called()
-        self.assertIn("detail", response.data)
-        self.assertIn("criterios", response.data["detail"])
+        self.assertIn("mensaje", response.data)
+        self.assertIn("criterios", response.data["mensaje"])
+
+    def test_construir_payload_forward_usa_tipo_alerta_del_proyecto(self):
+        proyecto = SimpleNamespace(id=self.proyecto_id, tipo_alerta="redes")
+        registros = [
+            {
+                "tipo": "articulo",
+                "titulo": "Titulo",
+                "contenido": "Contenido",
+                "fecha": datetime(2024, 1, 1),
+                "autor": "Autor",
+                "reach": 100,
+                "engagement": 5,
+                "url": "http://example.com",
+                "red_social": "Twitter",
+                "datos_adicionales": {"extra": "valor"},
+                "proveedor": "medios_twk",
+            }
+        ]
+
+        view = IngestionAPIView()
+        payload = view._construir_payload_forward("medios", registros, proyecto)
+
+        self.assertEqual(payload["proveedor"], "medios_twk")
+        self.assertEqual(payload["alertas"][0]["tipo"], "redes")
+
+    def _fake_crear_articulo(self, registro, proyecto, sistema_user):
+        self.ultimo_registro_articulo = registro
+        return SimpleNamespace(
+            id="articulo-id",
+            titulo=registro.get("titulo"),
+            contenido=registro.get("contenido"),
+            fecha_publicacion=registro.get("fecha"),
+            autor=registro.get("autor"),
+            reach=registro.get("reach"),
+            url=registro.get("url"),
+        )
+
+    def _fake_crear_red_social(self, registro, proyecto):
+        self.ultimo_registro_red = registro
+        red_social_nombre = registro.get("red_social")
+        red_social = (
+            SimpleNamespace(nombre=red_social_nombre)
+            if red_social_nombre
+            else None
+        )
+        return SimpleNamespace(
+            id="red-id",
+            contenido=registro.get("contenido"),
+            fecha_publicacion=registro.get("fecha"),
+            autor=registro.get("autor"),
+            reach=registro.get("reach"),
+            engagement=registro.get("engagement"),
+            url=registro.get("url"),
+            red_social=red_social,
+        )
