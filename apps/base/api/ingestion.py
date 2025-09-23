@@ -416,10 +416,11 @@ class IngestionAPIView(APIView):
         proyecto: Proyecto,
     ) -> Dict[str, Any]:
         proveedor_nombre = registros[0].get("proveedor") or self._obtener_nombre_proveedor(provider)
+        tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
         alertas = []
         for registro in registros:
             alerta = {
-                "tipo": registro.get("tipo"),
+                "tipo": tipo_alerta_proyecto or registro.get("tipo"),
                 "titulo": registro.get("titulo"),
                 "contenido": registro.get("contenido"),
                 "fecha": formatear_fecha_respuesta(registro.get("fecha")),
@@ -497,15 +498,20 @@ class IngestionAPIView(APIView):
         errores: List[Dict[str, Any]] = []
         listado: List[Dict[str, Any]] = []
         sistema_user = self._obtener_usuario_sistema()
+        tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
         for indice, registro in enumerate(registros, start=1):
             try:
                 if registro.get("tipo") == "articulo":
                     articulo = self._crear_articulo(registro, proyecto, sistema_user)
-                    listado.append(self._serializar_articulo(articulo, registro))
+                    listado.append(
+                        self._serializar_articulo(articulo, registro, tipo_alerta_proyecto)
+                    )
                 else:
                     red = self._crear_red_social(registro, proyecto)
-                    listado.append(self._serializar_red(red, registro))
+                    listado.append(
+                        self._serializar_red(red, registro, tipo_alerta_proyecto)
+                    )
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Error procesando fila %s", indice)
                 errores.append({"fila": indice, "error": str(exc)})
@@ -598,10 +604,15 @@ class IngestionAPIView(APIView):
             )
         return red
 
-    def _serializar_articulo(self, articulo: Articulo, registro: Dict[str, Any]) -> Dict[str, Any]:
+    def _serializar_articulo(
+        self,
+        articulo: Articulo,
+        registro: Dict[str, Any],
+        tipo_alerta: Optional[str] = None,
+    ) -> Dict[str, Any]:
         return {
             "id": str(articulo.id),
-            "tipo": "articulo",
+            "tipo": (tipo_alerta or "articulo"),
             "titulo": articulo.titulo,
             "contenido": articulo.contenido,
             "fecha": formatear_fecha_respuesta(articulo.fecha_publicacion),
@@ -614,10 +625,15 @@ class IngestionAPIView(APIView):
             "datos_adicionales": registro.get("datos_adicionales") or {},
         }
 
-    def _serializar_red(self, red: Redes, registro: Dict[str, Any]) -> Dict[str, Any]:
+    def _serializar_red(
+        self,
+        red: Redes,
+        registro: Dict[str, Any],
+        tipo_alerta: Optional[str] = None,
+    ) -> Dict[str, Any]:
         return {
             "id": str(red.id),
-            "tipo": "red",
+            "tipo": (tipo_alerta or "red"),
             "titulo": None,
             "contenido": red.contenido,
             "fecha": formatear_fecha_respuesta(red.fecha_publicacion),
@@ -633,6 +649,17 @@ class IngestionAPIView(APIView):
     # ------------------------------------------------------------------
     # Utilidades
     # ------------------------------------------------------------------
+    def _obtener_tipo_alerta_proyecto(self, proyecto: Optional[Proyecto]) -> Optional[str]:
+        if not proyecto:
+            return None
+
+        tipo_alerta = getattr(proyecto, "tipo_alerta", None)
+        if isinstance(tipo_alerta, str):
+            tipo_alerta_normalizado = tipo_alerta.strip()
+            if tipo_alerta_normalizado:
+                return tipo_alerta_normalizado
+        return None
+
     def _obtener_usuario_sistema(self):
         UserModel = get_user_model()
         try:
