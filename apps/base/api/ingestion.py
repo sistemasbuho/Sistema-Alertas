@@ -431,7 +431,7 @@ class IngestionAPIView(APIView):
 
     def _mapear_redes_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
         fecha = parsear_datetime(row.get("published"))
-        red_social = limpiar_texto(row.get("red_social"))
+        red_social = limpiar_texto(row.get("domain_url"))
         contenido = ajustar_contenido_red_social(
             limpiar_texto(row.get("content")),
             red_social,
