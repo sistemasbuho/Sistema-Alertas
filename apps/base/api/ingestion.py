@@ -19,6 +19,8 @@ from django.urls import NoReverseMatch, reverse
 from apps.base.models import Articulo, DetalleEnvio, Redes, RedesSociales
 from apps.proyectos.models import Proyecto
 
+from .contenido_redes import ajustar_contenido_red_social
+
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +189,11 @@ class IngestionAPIView(APIView):
                 "proveedor": "manual",
                 "datos_adicionales": {},
             }
+
+            if registro["tipo"] == "red":
+                registro["contenido"] = ajustar_contenido_red_social(
+                    registro.get("contenido"), registro.get("red_social")
+                )
 
             adicionales = {}
             for clave, valor in self._iterar_items_data(data):
@@ -364,28 +371,38 @@ class IngestionAPIView(APIView):
 
     def _mapear_redes_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
         fecha = self._parsear_datetime(row.get("published"))
+        red_social = self._limpiar_texto(row.get("red_social"))
+        contenido = ajustar_contenido_red_social(
+            self._limpiar_texto(row.get("content")),
+            red_social,
+        )
         return {
             "tipo": "red",
-            "contenido": self._limpiar_texto(row.get("content")),
+            "contenido": contenido,
             "fecha": fecha,
             "autor": self._limpiar_texto(row.get("extra_author_attributes.name")),
             "reach": self._parsear_entero(row.get("reach")),
             "engagement": self._parsear_entero(row.get("engagement")),
             "url": self._limpiar_url(row.get("url") or row.get("link")),
-            "red_social": self._limpiar_texto(row.get("red_social")),
+            "red_social": red_social,
         }
 
     def _mapear_determ(self, row: Dict[str, Any]) -> Dict[str, Any]:
         fecha = self._combinar_fecha_hora(row.get("date"), row.get("time"))
+        red_social = self._limpiar_texto(row.get("social_network"))
+        contenido = ajustar_contenido_red_social(
+            self._limpiar_texto(row.get("mention_snippet")),
+            red_social,
+        )
         return {
             "tipo": "red",
-            "contenido": self._limpiar_texto(row.get("mention_snippet")),
+            "contenido": contenido,
             "fecha": fecha,
             "autor": self._limpiar_texto(row.get("author")),
             "reach": self._parsear_entero(row.get("reach")),
             "engagement": self._parsear_entero(row.get("engagement_rate")),
             "url": self._limpiar_url(row.get("url")),
-            "red_social": self._limpiar_texto(row.get("social_network")),
+            "red_social": red_social,
         }
 
     # ------------------------------------------------------------------
