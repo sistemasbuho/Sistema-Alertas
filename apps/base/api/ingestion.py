@@ -70,6 +70,14 @@ PROVEEDORES_ENDPOINTS = {
     "determ": "redes-alertas-ingestion",
 }
 
+DOMINIOS_REDES_SOCIALES = (
+    "facebook.com",
+    "twitter.com",
+    "instagram.com",
+    "tiktok.com",
+    "youtube.com",
+)
+
 CAMPOS_PRINCIPALES = {
     "medios": COLUMNAS_MEDIOS_TWK | {"url", "link"},
     "redes": COLUMNAS_REDES_TWK | {"url", "link", "red_social"},
@@ -328,23 +336,45 @@ class IngestionAPIView(APIView):
         return PROVEEDORES_NOMBRES.get(provider, provider)
 
     def _mapear_filas(self, provider: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        mapper = {
-            "medios": self._mapear_medios_twk,
-            "redes": self._mapear_redes_twk,
-            "determ": self._mapear_determ,
-        }
-        map_function = mapper.get(provider)
-        if not map_function:
-            return []
-        campos_principales = CAMPOS_PRINCIPALES.get(provider, set())
-        nombre_proveedor = self._obtener_nombre_proveedor(provider)
-        registros: List[Dict[str, Any]] = []
+        if provider == "determ":
+            map_function = self._mapear_determ
+            campos_principales = CAMPOS_PRINCIPALES.get("determ", set())
+            nombre_proveedor = self._obtener_nombre_proveedor("determ")
+            registros: List[Dict[str, Any]] = []
+            for row in rows:
+                registro = map_function(row)
+                registro["proveedor"] = nombre_proveedor
+                registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
+                registros.append(registro)
+            return registros
+
+        registros = []
         for row in rows:
+            proveedor_inferido = self._inferir_proveedor(row)
+            map_function = (
+                self._mapear_redes_twk
+                if proveedor_inferido == "redes"
+                else self._mapear_medios_twk
+            )
+            campos_principales = CAMPOS_PRINCIPALES.get(proveedor_inferido, set())
+            nombre_proveedor = self._obtener_nombre_proveedor(proveedor_inferido)
             registro = map_function(row)
             registro["proveedor"] = nombre_proveedor
             registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
             registros.append(registro)
         return registros
+
+    def _inferir_proveedor(self, row: Dict[str, Any]) -> str:
+        if row.get("red_social"):
+            return "redes"
+
+        domain_url = row.get("domain_url")
+        if domain_url:
+            domain_normalized = str(domain_url).lower()
+            if any(dominio in domain_normalized for dominio in DOMINIOS_REDES_SOCIALES):
+                return "redes"
+
+        return "medios"
 
     def _filtrar_por_criterios(
         self, registros: List[Dict[str, Any]], proyecto: Proyecto
