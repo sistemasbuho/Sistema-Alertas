@@ -102,3 +102,58 @@ class IngestionAPITests(SimpleTestCase):
         alerta = payload["alertas"][0]
         self.assertEqual(alerta["contenido"], "Hola")
         self.assertEqual(alerta["engagement"], "42")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_redes_twk_trim_contenido_for_twitter_qt(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(
+            [
+                "content",
+                "published",
+                "extra_author_attributes.name",
+                "reach",
+                "engagement",
+                "red_social",
+            ]
+        )
+        sheet.append(
+            [
+                "Mensaje inicial QT @usuario comentario",
+                "2024-03-03",
+                "User",
+                "500",
+                "42",
+                "Twitter",
+            ]
+        )
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+        uploaded = SimpleUploadedFile(
+            "redes.xlsx",
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "forward_payload",
+            return_value=Response({"ok": True}, status=201),
+        ) as mock_forward:
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        mock_forward.assert_called_once()
+        alerta = mock_forward.call_args[0][1]["alertas"][0]
+        self.assertEqual(alerta["contenido"], "Mensaje inicial QT")
+        self.assertEqual(alerta["red_social"], "Twitter")
