@@ -87,71 +87,65 @@ class IngestionAPIView(APIView):
             return Response({"detail": "Proyecto no encontrado o no indicado."}, status=400)
 
         registro_manual = self._obtener_registro_manual(request)
+        registros_estandar: List[Dict[str, Any]] = []
+        proveedor: Optional[str] = None
+
         if registro_manual:
             registros_estandar = [registro_manual]
-            registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
-            if not registros_filtrados:
-                respuesta = {
-                    "proveedor": registro_manual.get("proveedor"),
-                    "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
-                    "listado": [],
-                    "errores": [],
-                }
-                return Response(respuesta, status=200)
+            proveedor = registro_manual.get("proveedor")
+        else:
+            archivo = self._obtener_archivo(request)
+            if not archivo:
+                return Response({"detail": "Se requiere un archivo CSV o XLSX."}, status=400)
 
-            resultado = self._persistir_registros(registros_filtrados, proyecto)
-            respuesta = {
-                "proveedor": registros_filtrados[0].get("proveedor"),
-                "mensaje": f"{len(resultado['listado'])} registros creados",
-                "listado": resultado["listado"],
-                "errores": resultado["errores"],
-            }
+            extension = os.path.splitext(archivo.name)[1].lower()
+            if extension not in {".csv", ".xlsx"}:
+                return Response({"detail": "Formato de archivo no soportado."}, status=400)
 
-            self._notificar_ruta_externa(respuesta)
+            headers, rows = self._parse_file(archivo, extension)
+            if not headers:
+                return Response({"detail": "El archivo no contiene encabezados válidos."}, status=400)
 
-            return Response(
-                respuesta,
-                status=201 if resultado["listado"] else 400,
-            )
+            provider = self._detectar_proveedor(headers)
+            if not provider:
+                return Response({"detail": "No fue posible determinar el tipo de datos del archivo."}, status=400)
 
-        archivo = self._obtener_archivo(request)
-        if not archivo:
-            return Response({"detail": "Se requiere un archivo CSV o XLSX."}, status=400)
+            registros_estandar = self._mapear_filas(provider, rows)
 
-        extension = os.path.splitext(archivo.name)[1].lower()
-        if extension not in {".csv", ".xlsx"}:
-            return Response({"detail": "Formato de archivo no soportado."}, status=400)
+            if not registros_estandar:
+                return Response({"detail": "No se encontraron filas válidas en el archivo."}, status=400)
 
-        headers, rows = self._parse_file(archivo, extension)
-        if not headers:
-            return Response({"detail": "El archivo no contiene encabezados válidos."}, status=400)
-
-        provider = self._detectar_proveedor(headers)
-        if not provider:
-            return Response({"detail": "No fue posible determinar el tipo de datos del archivo."}, status=400)
-
-        registros_estandar = self._mapear_filas(provider, rows)
-
-        if not registros_estandar:
-            return Response({"detail": "No se encontraron filas válidas en el archivo."}, status=400)
+            proveedor = provider
 
         registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
 
         if not registros_filtrados:
-            return Response(
-                {
-                    "detail": "No se encontraron registros que cumplan con los criterios de aceptación configurados.",
-                },
-                status=200,
-            )
+            respuesta = {
+                "proveedor": proveedor,
+                "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
+                "listado": [],
+                "errores": [],
+            }
+            self._notificar_ruta_externa(respuesta)
+            return Response(respuesta, status=200)
 
-        # endpoint = PROVEEDORES_ENDPOINTS.get(provider)
-        # if not endpoint:
-        #     return Response({"detail": "Proveedor no soportado."}, status=400)
 
-        payload = self._construir_payload_forward(provider, registros_filtrados, proyecto)
+        resultado = self._persistir_registros(registros_filtrados, proyecto)
+        proveedor_respuesta = registros_filtrados[0].get("proveedor") or proveedor
+        respuesta = {
+            "proveedor": proveedor_respuesta,
+            "mensaje": f"{len(resultado['listado'])} registros creados",
+            "listado": resultado["listado"],
+            "errores": resultado["errores"],
+        }
 
-        return self.forward_payload(endpoint, payload, {})
+
+        self._notificar_ruta_externa(respuesta)
+
+        return Response(
+            respuesta,
+            status=201 if resultado["listado"] else 400,
+        )
 
     # ------------------------------------------------------------------
     # Extracción de datos de la request
