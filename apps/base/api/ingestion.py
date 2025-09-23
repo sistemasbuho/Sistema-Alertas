@@ -133,6 +133,7 @@ class IngestionAPIView(APIView):
                 "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
                 "listado": [],
                 "errores": [],
+                "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
             }
             self._notificar_ruta_externa(respuesta)
             return Response(respuesta, status=200)
@@ -145,6 +146,7 @@ class IngestionAPIView(APIView):
             "mensaje": f"{len(resultado['listado'])} registros creados",
             "listado": resultado["listado"],
             "errores": resultado["errores"],
+            "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
         }
 
 
@@ -383,6 +385,25 @@ class IngestionAPIView(APIView):
         if proyecto and hasattr(proyecto, "get_criterios_aceptacion_list"):
             criterios = proyecto.get_criterios_aceptacion_list()
         return filtrar_registros_por_palabras(registros, criterios)
+
+    def _obtener_keywords_proyecto(self, proyecto: Optional[Proyecto]) -> List[str]:
+        if not proyecto:
+            return []
+
+        if hasattr(proyecto, "get_keywords_list"):
+            keywords = proyecto.get_keywords_list()
+            if isinstance(keywords, list):
+                return keywords
+
+        keywords_attr = getattr(proyecto, "keywords", None)
+        if keywords_attr:
+            return [
+                keyword.strip()
+                for keyword in str(keywords_attr).split(",")
+                if keyword and keyword.strip()
+            ]
+
+        return []
 
     def _construir_payload_forward(
         self,
