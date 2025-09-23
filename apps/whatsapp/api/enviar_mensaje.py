@@ -336,6 +336,7 @@ class EnviarMensajeAPIView(APIView):
         tipo_alerta = request.data.get("tipo_alerta")  # medios | redes
         alertas = request.data.get("alertas", [])
 
+
         if not proyecto_id or not tipo_alerta or not alertas:
             return Response(
                 {"error": "Se requieren 'proyecto_id', 'tipo_alerta' y 'alertas'"},
@@ -383,8 +384,6 @@ class EnviarMensajeAPIView(APIView):
             engagement = alerta.get("engagement", "")
 
 
-
-
             if not alerta_id:
                 no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
                 continue
@@ -399,6 +398,7 @@ class EnviarMensajeAPIView(APIView):
                 "engagement" :engagement
 
             }
+
             mensaje_formateado = formatear_mensaje(alerta_data, plantilla)
             filtros = {"proyecto_id": proyecto_id}
             if tipo_alerta == "medios":
@@ -415,6 +415,7 @@ class EnviarMensajeAPIView(APIView):
                     "proyecto_id": proyecto_id,
                 },
             )
+
 
             if detalle_envio.estado_enviado:
                 no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
