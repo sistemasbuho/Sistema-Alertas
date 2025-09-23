@@ -15,8 +15,12 @@ class IngestionAPITests(SimpleTestCase):
         self.factory = APIRequestFactory()
         self.proyecto_id = "123e4567-e89b-12d3-a456-426614174000"
 
-    def _mock_proyecto(self, mock_proyecto):
-        proyecto = SimpleNamespace(id=self.proyecto_id)
+    def _mock_proyecto(self, mock_proyecto, criterios=None):
+        criterios = criterios or []
+        proyecto = SimpleNamespace(
+            id=self.proyecto_id,
+            get_criterios_aceptacion_list=lambda: criterios,
+        )
         mock_proyecto.objects.filter.return_value.first.return_value = proyecto
 
     @patch("apps.base.api.ingestion.Proyecto")
@@ -157,3 +161,67 @@ class IngestionAPITests(SimpleTestCase):
         alerta = mock_forward.call_args[0][1]["alertas"][0]
         self.assertEqual(alerta["contenido"], "Mensaje inicial QT")
         self.assertEqual(alerta["red_social"], "Twitter")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, criterios=["alerta"])
+        content = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Mensaje sin match,Contenido,2024-01-01,Autor,1000\n"
+            "Alerta importante,Contenido,2024-01-01,Autor,1000\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "forward_payload",
+            return_value=Response({"ok": True}, status=202),
+        ) as mock_forward:
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 202)
+        mock_forward.assert_called_once()
+        payload = mock_forward.call_args[0][1]
+        self.assertEqual(len(payload["alertas"]), 1)
+        self.assertEqual(payload["alertas"][0]["titulo"], "Alerta importante")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_filtro_de_criterios_sin_coincidencias_no_reenvia(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, criterios=["alerta"])
+        content = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Mensaje sin match,Contenido,2024-01-01,Autor,1000\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "forward_payload",
+            return_value=Response({"ok": True}, status=202),
+        ) as mock_forward:
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        mock_forward.assert_not_called()
+        self.assertIn("detail", response.data)
+        self.assertIn("criterios", response.data["detail"])

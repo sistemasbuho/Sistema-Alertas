@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+from datetime import date, datetime, time, timedelta
+from typing import Any, Dict, Iterable, List, Optional, Sequence
+
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime, parse_time
+
+
+def limpiar_texto(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    return str(value).strip()
+
+
+def limpiar_url(value: Any) -> Optional[str]:
+    valor = limpiar_texto(value)
+    if not valor:
+        return None
+    return valor
+
+
+def parsear_entero(value: Any) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    try:
+        if isinstance(value, str):
+            value = value.replace(",", "").strip()
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def asegurar_timezone(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if timezone.is_naive(value):
+        return timezone.make_aware(value, timezone.get_current_timezone())
+    return value
+
+
+def parsear_datetime(value: Any) -> Optional[datetime]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return asegurar_timezone(value)
+    if isinstance(value, date):
+        combined = datetime.combine(value, time.min)
+        return asegurar_timezone(combined)
+    if isinstance(value, (int, float)):
+        # Excel serial numbers use 1899-12-30 as base
+        try:
+            base_date = datetime(1899, 12, 30)
+            combined = base_date + timedelta(days=float(value))
+            return asegurar_timezone(combined)
+        except (TypeError, ValueError):
+            return None
+    texto = str(value).strip()
+    if not texto:
+        return None
+    parsed = parse_datetime(texto)
+    if parsed:
+        return asegurar_timezone(parsed)
+    parsed_date = parse_date(texto)
+    if parsed_date:
+        return asegurar_timezone(datetime.combine(parsed_date, time.min))
+    parsed_time = parse_time(texto)
+    if parsed_time:
+        return asegurar_timezone(datetime.combine(timezone.now().date(), parsed_time))
+    return None
+
+
+def parsear_fecha(value: Any) -> Optional[date]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    texto = str(value).strip()
+    if not texto:
+        return None
+    return parse_date(texto)
+
+
+def parsear_hora(value: Any) -> Optional[time]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.time()
+    if isinstance(value, time):
+        return value
+    texto = str(value).strip()
+    if not texto:
+        return None
+    return parse_time(texto)
+
+
+def combinar_fecha_hora(fecha_value: Any, hora_value: Any) -> Optional[datetime]:
+    if isinstance(fecha_value, datetime) and isinstance(hora_value, datetime):
+        return asegurar_timezone(datetime.combine(fecha_value.date(), hora_value.time()))
+
+    if isinstance(fecha_value, datetime):
+        fecha = fecha_value
+    else:
+        fecha_parsed = parsear_fecha(fecha_value)
+        if not fecha_parsed:
+            return None
+        fecha = datetime.combine(fecha_parsed, time.min)
+
+    hora = parsear_hora(hora_value)
+    if not hora:
+        return asegurar_timezone(fecha)
+
+    combinado = fecha.replace(
+        hour=hora.hour,
+        minute=hora.minute,
+        second=hora.second,
+        microsecond=hora.microsecond,
+    )
+    return asegurar_timezone(combinado)
+
+
+def formatear_fecha_respuesta(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    return asegurar_timezone(value).astimezone(timezone.get_current_timezone()).isoformat()
+
+
+def normalizar_valor_adicional(value: Any) -> Optional[Any]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return formatear_fecha_respuesta(asegurar_timezone(value))
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, time):
+        return value.strftime("%H:%M:%S")
+    if isinstance(value, str):
+        texto = value.strip()
+        return texto or None
+    return value
+
+
+def filtrar_registros_por_palabras(
+    registros: Sequence[Dict[str, Any]],
+    palabras: Iterable[str],
+) -> List[Dict[str, Any]]:
+    palabras_normalizadas = [palabra.lower() for palabra in palabras if palabra]
+    if not palabras_normalizadas:
+        return list(registros)
+
+    filtrados: List[Dict[str, Any]] = []
+    for registro in registros:
+        titulo = (registro.get("titulo") or "").lower()
+        contenido = (registro.get("contenido") or "").lower()
+        texto_busqueda = f"{titulo} {contenido}".strip()
+        if any(palabra in texto_busqueda for palabra in palabras_normalizadas):
+            filtrados.append(registro)
+    return filtrados
