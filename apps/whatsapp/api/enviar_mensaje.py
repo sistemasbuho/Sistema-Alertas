@@ -457,11 +457,19 @@ class EnviarMensajeAPIView(APIView):
                         detalle_envio.save()
                         no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
 
-        alertas_enviadas = [alerta for alerta in alertas if alerta.get("id") in enviados]
+        payload_monitoreo = {}
+        if hasattr(request.data, "items"):
+            for key, value in request.data.items():
+                payload_monitoreo[key] = value
+        else:
+            payload_monitoreo = dict(request.data)
+        payload_monitoreo["alertas"] = alertas
+
         monitoreo_result = enviar_alertas_a_monitoreo(
             proyecto_id=proyecto_id,
             tipo_alerta=tipo_alerta,
-            alertas=alertas_enviadas,
+            data_alertas=payload_monitoreo,
+            enviados_ids=enviados,
             grupo_id=grupo_id,
         )
 
@@ -597,11 +605,13 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
                     detalle_envio.save()
                     no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
 
-    alertas_enviadas = [alerta for alerta in alertas if alerta.get("id") in enviados]
+    payload_monitoreo = {"alertas": alertas}
+
     monitoreo_result = enviar_alertas_a_monitoreo(
         proyecto_id=proyecto_id,
         tipo_alerta=tipo_alerta,
-        alertas=alertas_enviadas,
+        data_alertas=payload_monitoreo,
+        enviados_ids=enviados,
         grupo_id=grupo_id,
     )
 
@@ -613,9 +623,18 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
     }
 
 
-def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, alertas, grupo_id=None):
+def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_ids=None, grupo_id=None):
     """Envía la información de alertas al servicio de monitoreo externo."""
+    if not data_alertas:
+        return {"detalle": "Sin alertas para enviar"}
+
+    alertas = data_alertas.get("alertas", [])
     if not alertas:
+        return {"detalle": "Sin alertas para enviar"}
+
+    enviados_ids = set(enviados_ids or [])
+    alertas_enviadas = [alerta for alerta in alertas if alerta.get("id") in enviados_ids]
+    if not alertas_enviadas:
         return {"detalle": "Sin alertas para enviar"}
 
     base_url = os.getenv("MONITOREO_API_URL", "https://monitoreo.buho.media/")
@@ -625,8 +644,12 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, alertas, grupo_id=None)
     payload = {
         "proyecto_id": proyecto_id,
         "tipo_alerta": tipo_alerta,
-        "alertas": alertas,
+        "alertas": alertas_enviadas,
     }
+
+    proveedor = data_alertas.get("proveedor")
+    if proveedor:
+        payload["proveedor"] = proveedor
 
     if grupo_id:
         payload["grupo_id"] = grupo_id
