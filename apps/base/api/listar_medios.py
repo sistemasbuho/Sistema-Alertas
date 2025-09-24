@@ -14,14 +14,12 @@ class MediosListAPIView(generics.ListAPIView):
     pagination_class = PaginacionEstandar
 
     def get_queryset(self):
-        all_param = self.request.query_params.get("all", "false").lower()
 
         queryset = (
             Articulo.objects.select_related("proyecto")
             .prefetch_related("detalles_envio")
         )
-        if all_param == "true":
-            return queryset
+
 
         return queryset
     
