@@ -57,7 +57,7 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
         valor_str = str(valor)
 
-        if plantilla_objetivo == "redes justa" and tipo_alerta_normalizado == "redes":
+        if plantilla_objetivo == "Plantilla Redes" and tipo_alerta_normalizado == "redes":
             if campo == "reach" and valor_str:
                 valor_str = f"seguidores: {valor_str}"
             elif campo == "engagement" and valor_str:
