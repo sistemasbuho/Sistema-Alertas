@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 import requests
 from rest_framework import status
 from django.utils import timezone
+from typing import Optional, Tuple
 
 from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 from apps.proyectos.models import Proyecto
@@ -37,9 +38,32 @@ class BaseCapturaAlertasAPIView(APIView):
             return now()
 
 
-def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
+def _aplicar_estilos(
+    valor: str, estilo: dict, *, etiqueta: Optional[str] = None
+) -> Tuple[str, Optional[bool]]:
+    """Aplica los estilos soportados por la plantilla al valor recibido."""
 
-    print('INGRESA')
+    valor_base = valor
+
+    if estilo:
+        if estilo.get("negrita"):
+            valor_base = f"*{valor_base}*"
+        if estilo.get("inclinado"):
+            valor_base = f"_{valor_base}_"
+
+    salto_linea = estilo.get("salto_linea") if estilo else None
+
+    valor_formateado = valor_base
+
+    if etiqueta:
+        etiqueta_str = str(etiqueta)
+        separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": "
+        valor_formateado = f"{etiqueta_str}{separador}{valor_formateado}"
+
+    return valor_formateado, salto_linea
+
+
+def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
     """
     Genera un mensaje formateado aplicando la plantilla de estilos y orden.
     Funciona para alertas de medios o redes.
@@ -48,36 +72,39 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
     plantilla_objetivo = (nombre_plantilla or "").strip().lower()
     tipo_alerta_normalizado = (tipo_alerta or "").strip().lower()
-    print('INGRESA',plantilla_objetivo)
 
-
-    for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get('orden', 0)):
+    for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get("orden", 0)):
         valor = alerta.get(campo)
         if valor is None or valor == "":
-            valor = alerta.get('mensaje')  # fallback a 'mensaje'
+            valor = alerta.get("mensaje")  # fallback a 'mensaje'
 
         if valor is None or valor == "":
             continue
 
         valor_str = str(valor)
 
-        if plantilla_objetivo == "Plantilla Redes" and tipo_alerta_normalizado == "redes":
+        if plantilla_objetivo == "plantilla redes" and tipo_alerta_normalizado == "redes":
             if campo == "reach" and valor_str:
                 valor_str = f"seguidores: {valor_str}"
             elif campo == "engagement" and valor_str:
                 valor_str = f"reach: {valor_str}"
 
-        valor = valor_str
+        estilo = conf.get("estilo", {}) or {}
+        valor_formateado, salto_linea = _aplicar_estilos(
+            valor_str, estilo, etiqueta=conf.get("label")
+        )
+        partes.append((valor_formateado, salto_linea))
 
-        estilo = conf.get('estilo', {})
-        if estilo.get('negrita'):
-            valor = f"*{valor}*"
-        if estilo.get('inclinado'):
-            valor = f"_{valor}_"
+    mensaje = []
+    for indice, (valor, salto_linea) in enumerate(partes):
+        if indice > 0:
+            if salto_linea is False:
+                mensaje.append(" ")
+            else:
+                mensaje.append("\n")
+        mensaje.append(valor)
 
-        partes.append(valor)
-
-    return "\n".join(partes)
+    return "".join(mensaje)
 
 
 
