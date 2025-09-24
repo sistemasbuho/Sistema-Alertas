@@ -52,11 +52,15 @@ class CrearCamposPlantillaAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Actualizamos o creamos configuración
-            config_actual[nombre_campo] = {
-                "orden": campo.get("orden", config_actual.get(nombre_campo, {}).get("orden")),
-                "estilo": campo.get("estilo", config_actual.get(nombre_campo, {}).get("estilo", {}))
-            }
+            config_existente = config_actual.get(nombre_campo, {})
+            nueva_config = config_existente.copy()
+
+            for clave, valor in campo.items():
+                if clave == "campo":
+                    continue
+                nueva_config[clave] = valor
+
+            config_actual[nombre_campo] = nueva_config
 
         # Guardamos en la plantilla
         plantilla.config_campos = config_actual
