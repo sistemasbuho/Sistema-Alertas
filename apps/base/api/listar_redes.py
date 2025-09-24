@@ -40,8 +40,6 @@ class RedesListAPIView(generics.ListAPIView):
         all_param = self.request.query_params.get("all", "false").lower()
         queryset = Redes.objects.select_related("proyecto").prefetch_related("detalles_envio")
 
-        if all_param != "true":
-            queryset = queryset.filter(detalles_envio__estado_enviado=False).distinct()
 
         for red in queryset:
             if not red.red_social:  # saltar si no tiene red social

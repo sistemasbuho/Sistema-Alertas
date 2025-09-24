@@ -23,7 +23,7 @@ class MediosListAPIView(generics.ListAPIView):
         if all_param == "true":
             return queryset
 
-        return queryset.filter(detalles_envio__estado_enviado=False).distinct()
+        return queryset
     
 
 

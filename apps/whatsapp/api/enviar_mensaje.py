@@ -38,6 +38,8 @@ class BaseCapturaAlertasAPIView(APIView):
 
 
 def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
+
+    print('INGRESA')
     """
     Genera un mensaje formateado aplicando la plantilla de estilos y orden.
     Funciona para alertas de medios o redes.
@@ -46,6 +48,8 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
     plantilla_objetivo = (nombre_plantilla or "").strip().lower()
     tipo_alerta_normalizado = (tipo_alerta or "").strip().lower()
+    print('INGRESA',plantilla_objetivo)
+
 
     for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get('orden', 0)):
         valor = alerta.get(campo)
