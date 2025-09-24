@@ -284,6 +284,77 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(payload["proveedor"], "medios_twk")
         self.assertEqual(payload["alertas"][0]["tipo"], "redes")
 
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_registro_manual_usa_tipo_alerta_redes_del_proyecto(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, tipo_alerta="redes")
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {
+                "proyecto": self.proyecto_id,
+                "url": "http://example.com/post",
+                "contenido": "Contenido redes",
+                "autor": "Usuario",
+                "red_social": "https://twitter.com", 
+            },
+            format="json",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNone(self.ultimo_registro_articulo)
+        self.assertIsNotNone(self.ultimo_registro_red)
+        self.assertEqual(response.data["listado"][0]["tipo"], "redes")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_registro_manual_usa_tipo_alerta_medios_del_proyecto(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, tipo_alerta="medios")
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {
+                "proyecto": self.proyecto_id,
+                "url": "http://example.com/articulo",
+                "titulo": "Titulo articulo",
+                "contenido": "Contenido articulo",
+                "autor": "Usuario",
+                "tipo": "red",
+            },
+            format="json",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNotNone(self.ultimo_registro_articulo)
+        self.assertIsNone(self.ultimo_registro_red)
+        self.assertEqual(response.data["listado"][0]["tipo"], "medios")
+
     def _fake_crear_articulo(self, registro, proyecto, sistema_user):
         self.ultimo_registro_articulo = registro
         return SimpleNamespace(

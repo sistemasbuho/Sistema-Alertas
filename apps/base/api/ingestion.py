@@ -95,7 +95,12 @@ class IngestionAPIView(APIView):
         if proyecto is None:
             return Response({"detail": "Proyecto no encontrado o no indicado."}, status=400)
 
+        tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
         registro_manual = self._obtener_registro_manual(request)
+        if registro_manual:
+            self._ajustar_registro_manual_por_tipo_alerta(
+                registro_manual, tipo_alerta_proyecto
+            )
         registros_estandar: List[Dict[str, Any]] = []
         proveedor: Optional[str] = None
 
@@ -261,6 +266,23 @@ class IngestionAPIView(APIView):
             return registro
 
         return None
+
+    def _ajustar_registro_manual_por_tipo_alerta(
+        self,
+        registro: Dict[str, Any],
+        tipo_alerta: Optional[str],
+    ) -> None:
+        if not tipo_alerta:
+            return
+
+        tipo_alerta_normalizado = tipo_alerta.strip().lower()
+        if not tipo_alerta_normalizado:
+            return
+
+        if tipo_alerta_normalizado == "redes":
+            registro["tipo"] = "red"
+        elif tipo_alerta_normalizado == "medios":
+            registro["tipo"] = "articulo"
 
     def _obtener_valor_data(self, data, key):
         valor = data.get(key)  # type: ignore[attr-defined]
