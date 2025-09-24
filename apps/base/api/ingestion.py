@@ -96,65 +96,30 @@ class IngestionAPIView(APIView):
             return Response({"detail": "Proyecto no encontrado o no indicado."}, status=400)
 
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
-        registro_manual = self._obtener_registro_manual(request)
-        if registro_manual:
-            self._ajustar_registro_manual_por_tipo_alerta(
-                registro_manual, tipo_alerta_proyecto
-            )
-        registros_estandar: List[Dict[str, Any]] = []
-        proveedor: Optional[str] = None
-
-        if registro_manual:
-            registros_estandar = [registro_manual]
-            proveedor = registro_manual.get("proveedor")
-        else:
-            archivo = self._obtener_archivo(request)
-            if not archivo:
-                return Response({"detail": "Se requiere un archivo CSV o XLSX."}, status=400)
-
-            extension = os.path.splitext(archivo.name)[1].lower()
-            if extension not in {".csv", ".xlsx"}:
-                return Response({"detail": "Formato de archivo no soportado."}, status=400)
-
-            headers, rows = self._parse_file(archivo, extension)
-            if not headers:
-                return Response({"detail": "El archivo no contiene encabezados válidos."}, status=400)
-
-            provider = self._detectar_proveedor(headers)
-            if not provider:
-                return Response({"detail": "No fue posible determinar el tipo de datos del archivo."}, status=400)
-
-            registros_estandar = self._mapear_filas(provider, rows)
-
-            if not registros_estandar:
-                return Response({"detail": "No se encontraron filas válidas en el archivo."}, status=400)
-
-            proveedor = provider
+        registros_estandar, proveedor, error_response = self._extraer_registros_estandar(
+            request,
+            tipo_alerta_proyecto,
+        )
+        if error_response:
+            return error_response
 
         registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
 
         if not registros_filtrados:
-            respuesta = {
-                "proveedor": proveedor,
-                "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
-                "listado": [],
-                "errores": [],
-                "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
-            }
+            respuesta = self._construir_respuesta_sin_registros(
+                proveedor,
+                proyecto,
+            )
             self._notificar_ruta_externa(respuesta)
             return Response(respuesta, status=200)
 
-
         resultado = self._persistir_registros(registros_filtrados, proyecto)
-        proveedor_respuesta = registros_filtrados[0].get("proveedor") or proveedor
-        respuesta = {
-            "proveedor": proveedor_respuesta,
-            "mensaje": f"{len(resultado['listado'])} registros creados",
-            "listado": resultado["listado"],
-            "errores": resultado["errores"],
-            "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
-        }
-
+        respuesta = self._construir_respuesta_exito(
+            registros_filtrados,
+            resultado,
+            proveedor,
+            proyecto,
+        )
 
         self._notificar_ruta_externa(respuesta)
 
@@ -162,6 +127,84 @@ class IngestionAPIView(APIView):
             respuesta,
             status=201 if resultado["listado"] else 400,
         )
+
+    def _extraer_registros_estandar(
+        self,
+        request,
+        tipo_alerta_proyecto: Optional[str],
+    ) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[Response]]:
+        registro_manual = self._obtener_registro_manual(request)
+        if registro_manual:
+            self._ajustar_registro_manual_por_tipo_alerta(
+                registro_manual, tipo_alerta_proyecto
+            )
+            return [registro_manual], registro_manual.get("proveedor"), None
+
+        archivo = self._obtener_archivo(request)
+        if not archivo:
+            return [], None, Response(
+                {"detail": "Se requiere un archivo CSV o XLSX."},
+                status=400,
+            )
+
+        extension = os.path.splitext(archivo.name)[1].lower()
+        if extension not in {".csv", ".xlsx"}:
+            return [], None, Response(
+                {"detail": "Formato de archivo no soportado."},
+                status=400,
+            )
+
+        headers, rows = self._parse_file(archivo, extension)
+        if not headers:
+            return [], None, Response(
+                {"detail": "El archivo no contiene encabezados válidos."},
+                status=400,
+            )
+
+        provider = self._detectar_proveedor(headers)
+        if not provider:
+            return [], None, Response(
+                {"detail": "No fue posible determinar el tipo de datos del archivo."},
+                status=400,
+            )
+
+        registros_estandar = self._mapear_filas(provider, rows)
+        if not registros_estandar:
+            return [], provider, Response(
+                {"detail": "No se encontraron filas válidas en el archivo."},
+                status=400,
+            )
+
+        return registros_estandar, provider, None
+
+    def _construir_respuesta_sin_registros(
+        self,
+        proveedor: Optional[str],
+        proyecto: Proyecto,
+    ) -> Dict[str, Any]:
+        return {
+            "proveedor": proveedor,
+            "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
+            "listado": [],
+            "errores": [],
+            "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
+        }
+
+    def _construir_respuesta_exito(
+        self,
+        registros_filtrados: List[Dict[str, Any]],
+        resultado: Dict[str, List[Dict[str, Any]]],
+        proveedor: Optional[str],
+        proyecto: Proyecto,
+    ) -> Dict[str, Any]:
+        proveedor_respuesta = registros_filtrados[0].get("proveedor") or proveedor
+        return {
+            "proveedor": proveedor_respuesta,
+            "mensaje": f"{len(resultado['listado'])} registros creados",
+            "listado": resultado["listado"],
+            "errores": resultado["errores"],
+            "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
+        }
 
     # ------------------------------------------------------------------
     # Extracción de datos de la request
