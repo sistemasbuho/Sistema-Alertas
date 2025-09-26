@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
+from django.utils.datastructures import MultiValueDict
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
@@ -330,6 +331,58 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["mensaje"], "2 registros creados")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    def test_permite_archivos_en_claves_distintas(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        contenido_a = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo A,Contenido A,2024-03-03,Autor A,1500\n"
+        )
+        contenido_b = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo B,Contenido B,2024-04-04,Autor B,800\n"
+        )
+        archivo_a = SimpleUploadedFile(
+            "medios-a.csv",
+            contenido_a.encode("utf-8"),
+            content_type="text/csv",
+        )
+        archivo_b = SimpleUploadedFile(
+            "medios-b.csv",
+            contenido_b.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": archivo_a, "archivo_secundario": archivo_b},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 2)
+        autores = {alerta["autor"] for alerta in listado}
+        self.assertSetEqual(autores, {"Autor A", "Autor B"})
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "2 registros creados")
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto, criterios=["alerta"])
         content = (
@@ -536,3 +589,54 @@ class IngestionAPITests(SimpleTestCase):
             url=registro.get("url"),
             red_social=red_social,
         )
+
+
+class ObtenerArchivosTests(SimpleTestCase):
+    def setUp(self):
+        self.view = IngestionAPIView()
+
+    def test_recupera_todos_los_archivos_desde_multivaluedict(self):
+        archivo_uno = SimpleUploadedFile(
+            "archivo-uno.csv",
+            b"contenido uno",
+            content_type="text/csv",
+        )
+        archivo_dos = SimpleUploadedFile(
+            "archivo-dos.csv",
+            b"contenido dos",
+            content_type="text/csv",
+        )
+        files = MultiValueDict(
+            {
+                "archivo_principal": [archivo_uno],
+                "archivo_secundario": [archivo_dos],
+            }
+        )
+        request = SimpleNamespace(FILES=files)
+
+        archivos = self.view._obtener_archivos(request)
+
+        self.assertEqual(len(archivos), 2)
+        self.assertEqual({a.name for a in archivos}, {"archivo-uno.csv", "archivo-dos.csv"})
+
+    def test_recupera_archivos_desde_diccionario_con_listas(self):
+        archivo_uno = SimpleUploadedFile(
+            "archivo-uno.csv",
+            b"contenido uno",
+            content_type="text/csv",
+        )
+        archivo_dos = SimpleUploadedFile(
+            "archivo-dos.csv",
+            b"contenido dos",
+            content_type="text/csv",
+        )
+        files = {
+            "archivo": [archivo_uno],
+            "archivo_extra": archivo_dos,
+        }
+        request = SimpleNamespace(FILES=files)
+
+        archivos = self.view._obtener_archivos(request)
+
+        self.assertEqual(len(archivos), 2)
+        self.assertEqual({a.name for a in archivos}, {"archivo-uno.csv", "archivo-dos.csv"})
