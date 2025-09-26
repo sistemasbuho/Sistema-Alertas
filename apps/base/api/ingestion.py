@@ -24,7 +24,7 @@ from .utils import (
     filtrar_registros_por_palabras,
     formatear_fecha_respuesta,
     limpiar_texto,
-    limpiar_url,
+    normalizar_url,
     normalizar_valor_adicional,
     parsear_datetime,
     parsear_entero,
@@ -270,7 +270,7 @@ class IngestionAPIView(APIView):
             if not hasattr(data, "get"):
                 continue
 
-            url = limpiar_url(self._obtener_valor_data(data, "url") or self._obtener_valor_data(data, "link"))
+            url = normalizar_url(self._obtener_valor_data(data, "url") or self._obtener_valor_data(data, "link"))
             if not url:
                 continue
 
@@ -556,7 +556,7 @@ class IngestionAPIView(APIView):
             "fecha": fecha,
             "autor": limpiar_texto(row.get("extra_author_attributes.name")),
             "reach": parsear_entero(row.get("reach")),
-            "url": limpiar_url(row.get("url") or row.get("link")),
+            "url": normalizar_url(row.get("url") or row.get("link")),
         }
 
     def _mapear_redes_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -573,7 +573,7 @@ class IngestionAPIView(APIView):
             "autor": limpiar_texto(row.get("extra_author_attributes.name")),
             "reach": parsear_entero(row.get("reach")),
             "engagement": parsear_entero(row.get("engagement")),
-            "url": limpiar_url(row.get("url") or row.get("link")),
+            "url": normalizar_url(row.get("url") or row.get("link")),
             "red_social": red_social,
         }
 
@@ -591,7 +591,7 @@ class IngestionAPIView(APIView):
             "autor": limpiar_texto(row.get("author")),
             "reach": parsear_entero(row.get("reach")),
             "engagement": parsear_entero(row.get("engagement_rate")),
-            "url": limpiar_url(row.get("url")),
+            "url": normalizar_url(row.get("url")),
             "red_social": red_social,
         }
 
