@@ -123,6 +123,81 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
 
 
+def _enviar_muchos_en_uno(
+    pendientes_envio,
+    *,
+    headers,
+    url_mensaje,
+    max_retries,
+    retry_delay,
+    grupo_id,
+    enviados,
+    no_enviados,
+):
+    """Envía un único mensaje concatenando varias alertas."""
+
+    if not pendientes_envio:
+        return
+
+    cuerpo_mensaje = "\n\n".join(str(item.get("mensaje", "")) for item in pendientes_envio)
+    payload = {"to": grupo_id, "body": cuerpo_mensaje, "no_link_preview": True}
+
+    attempts = 0
+    success = False
+    while attempts < max_retries and not success:
+        try:
+            response = requests.post(url_mensaje, json=payload, headers=headers)
+            if response.status_code == 200:
+                timestamp = timezone.now()
+                for item in pendientes_envio:
+                    detalle_envio = item["detalle_envio"]
+                    detalle_envio.fin_envio = timestamp
+                    detalle_envio.estado_enviado = True
+                    detalle_envio.save()
+                    enviados.append(item["alerta_id"])
+                success = True
+            else:
+                attempts += 1
+                if attempts < max_retries:
+                    time.sleep(retry_delay)
+                else:
+                    timestamp = timezone.now()
+                    try:
+                        detalle_respuesta = response.json()
+                    except ValueError:
+                        detalle_respuesta = response.text
+                    for item in pendientes_envio:
+                        detalle_envio = item["detalle_envio"]
+                        detalle_envio.fin_envio = timestamp
+                        detalle_envio.estado_enviado = False
+                        detalle_envio.save()
+                        no_enviados.append(
+                            {
+                                "alerta_id": item["alerta_id"],
+                                "status_code": response.status_code,
+                                "detalle": detalle_respuesta,
+                            }
+                        )
+        except requests.RequestException as e:
+            attempts += 1
+            if attempts < max_retries:
+                time.sleep(retry_delay)
+            else:
+                timestamp = timezone.now()
+                for item in pendientes_envio:
+                    detalle_envio = item["detalle_envio"]
+                    detalle_envio.fin_envio = timestamp
+                    detalle_envio.estado_enviado = False
+                    detalle_envio.save()
+                    no_enviados.append(
+                        {
+                            "alerta_id": item["alerta_id"],
+                            "error": f"Error de conexión: {str(e)}",
+                        }
+                    )
+
+
+
 # -----------------------
 # Medios
 # -----------------------
@@ -150,6 +225,9 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+        formato_muchos_en_uno = proyecto.formato_mensaje == "muchos en uno"
+
         # Obtener plantilla del proyecto
         plantilla = {}
         plantilla_nombre = None
@@ -165,6 +243,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
 
         enviados = []
         no_enviados = []
+        pendientes_envio = []
 
         for alerta in alertas:
             alerta_id = alerta.get("id")  # id de la alerta en el JSON
@@ -217,6 +296,16 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 )
                 continue
 
+            if formato_muchos_en_uno:
+                pendientes_envio.append(
+                    {
+                        "alerta_id": alerta_id,
+                        "detalle_envio": detalle_envio,
+                        "mensaje": mensaje_formateado,
+                    }
+                )
+                continue
+
             # Armar payload para WhatsApp
             payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
 
@@ -255,6 +344,18 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                         detalle_envio.estado_enviado = False
                         detalle_envio.save()
                         no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+        if formato_muchos_en_uno:
+            _enviar_muchos_en_uno(
+                pendientes_envio,
+                headers=headers,
+                url_mensaje=self.url_mensaje,
+                max_retries=self.max_retries,
+                retry_delay=self.retry_delay,
+                grupo_id=grupo_id,
+                enviados=enviados,
+                no_enviados=no_enviados,
+            )
 
         return Response(
             {
@@ -435,6 +536,8 @@ class EnviarMensajeAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        formato_muchos_en_uno = proyecto.formato_mensaje == "muchos en uno"
+
         # Obtener plantilla del proyecto
         plantilla = {}
         plantilla_nombre = None
@@ -452,6 +555,7 @@ class EnviarMensajeAPIView(APIView):
         no_enviados = []
 
         alertas = ordenar_alertas_por_fecha(alertas)
+        pendientes_envio = []
 
         for alerta in alertas:
             alerta_id = alerta.get("id")
@@ -506,6 +610,16 @@ class EnviarMensajeAPIView(APIView):
                 no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
                 continue
 
+            if formato_muchos_en_uno:
+                pendientes_envio.append(
+                    {
+                        "alerta_id": alerta_id,
+                        "detalle_envio": detalle_envio,
+                        "mensaje": mensaje_formateado,
+                    }
+                )
+                continue
+
             payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
 
             success = False
@@ -541,6 +655,18 @@ class EnviarMensajeAPIView(APIView):
                         detalle_envio.estado_enviado = False
                         detalle_envio.save()
                         no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+        if formato_muchos_en_uno:
+            _enviar_muchos_en_uno(
+                pendientes_envio,
+                headers=headers,
+                url_mensaje=self.url_mensaje,
+                max_retries=self.max_retries,
+                retry_delay=self.retry_delay,
+                grupo_id=grupo_id,
+                enviados=enviados,
+                no_enviados=no_enviados,
+            )
 
         payload_monitoreo = {}
         if hasattr(request.data, "items"):
@@ -589,6 +715,8 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
     except Proyecto.DoesNotExist:
         return {"error": "Proyecto no existe"}
 
+    formato_muchos_en_uno = proyecto.formato_mensaje == "muchos en uno"
+
     # Obtener plantilla del proyecto
     plantilla = {}
     plantilla_nombre = None
@@ -607,6 +735,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
 
     enviados = []
     no_enviados = []
+    pendientes_envio = []
 
     for alerta in alertas:
         alerta_id = alerta.get("id")
@@ -660,6 +789,16 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             no_enviados.append({"alerta_id": alerta_id, "error": "Ya fue enviada anteriormente"})
             continue
 
+        if formato_muchos_en_uno:
+            pendientes_envio.append(
+                {
+                    "alerta_id": alerta_id,
+                    "detalle_envio": detalle_envio,
+                    "mensaje": mensaje_formateado,
+                }
+            )
+            continue
+
         payload = {"to": grupo_id, "body": mensaje_formateado, "no_link_preview": True}
 
         # Reintentos
@@ -696,6 +835,18 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
                     detalle_envio.estado_enviado = False
                     detalle_envio.save()
                     no_enviados.append({"alerta_id": alerta_id, "error": f"Error de conexión: {str(e)}"})
+
+    if formato_muchos_en_uno:
+        _enviar_muchos_en_uno(
+            pendientes_envio,
+            headers=headers,
+            url_mensaje=url_mensaje,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            grupo_id=grupo_id,
+            enviados=enviados,
+            no_enviados=no_enviados,
+        )
 
     payload_monitoreo = {"alertas": alertas}
 
