@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
+from django.utils.datastructures import MultiValueDict
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
@@ -588,3 +589,54 @@ class IngestionAPITests(SimpleTestCase):
             url=registro.get("url"),
             red_social=red_social,
         )
+
+
+class ObtenerArchivosTests(SimpleTestCase):
+    def setUp(self):
+        self.view = IngestionAPIView()
+
+    def test_recupera_todos_los_archivos_desde_multivaluedict(self):
+        archivo_uno = SimpleUploadedFile(
+            "archivo-uno.csv",
+            b"contenido uno",
+            content_type="text/csv",
+        )
+        archivo_dos = SimpleUploadedFile(
+            "archivo-dos.csv",
+            b"contenido dos",
+            content_type="text/csv",
+        )
+        files = MultiValueDict(
+            {
+                "archivo_principal": [archivo_uno],
+                "archivo_secundario": [archivo_dos],
+            }
+        )
+        request = SimpleNamespace(FILES=files)
+
+        archivos = self.view._obtener_archivos(request)
+
+        self.assertEqual(len(archivos), 2)
+        self.assertEqual({a.name for a in archivos}, {"archivo-uno.csv", "archivo-dos.csv"})
+
+    def test_recupera_archivos_desde_diccionario_con_listas(self):
+        archivo_uno = SimpleUploadedFile(
+            "archivo-uno.csv",
+            b"contenido uno",
+            content_type="text/csv",
+        )
+        archivo_dos = SimpleUploadedFile(
+            "archivo-dos.csv",
+            b"contenido dos",
+            content_type="text/csv",
+        )
+        files = {
+            "archivo": [archivo_uno],
+            "archivo_extra": archivo_dos,
+        }
+        request = SimpleNamespace(FILES=files)
+
+        archivos = self.view._obtener_archivos(request)
+
+        self.assertEqual(len(archivos), 2)
+        self.assertEqual({a.name for a in archivos}, {"archivo-uno.csv", "archivo-dos.csv"})

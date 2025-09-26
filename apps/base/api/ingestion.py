@@ -257,30 +257,35 @@ class IngestionAPIView(APIView):
         return Proyecto.objects.filter(id=proyecto_id).first()
 
     def _obtener_archivos(self, request) -> List[Any]:
-        archivos: List[Any] = []
         files = getattr(request, "FILES", None)
         if not files:
-            return archivos
+            return []
 
-        if hasattr(files, "getlist"):
-            keys = list(getattr(files, "keys", lambda: [])())  # type: ignore[misc]
-            if not keys:
-                keys = ["file", "archivo"]
+        archivos: List[Any] = []
 
-            for key in keys:
-                for archivo in files.getlist(key):
-                    if archivo:
-                        archivos.append(archivo)
+        def _agregar(valor: Any) -> None:
+            if not valor:
+                return
+            if isinstance(valor, (list, tuple, set)):
+                for item in valor:
+                    _agregar(item)
+                return
+            archivos.append(valor)
+
+        if hasattr(files, "lists"):
+            for _, valores in files.lists():  # type: ignore[attr-defined]
+                _agregar(valores)
+        elif hasattr(files, "values"):
+            for valor in files.values():  # type: ignore[attr-defined]
+                _agregar(valor)
         else:
-            posibles_claves = set()
-            if hasattr(files, "keys"):
-                posibles_claves.update(files.keys())  # type: ignore[attr-defined]
-            posibles_claves.update({"file", "archivo"})
+            _agregar(files)
 
-            for key in posibles_claves:
-                archivo = files.get(key)
-                if archivo:
-                    archivos.append(archivo)
+        if not archivos and hasattr(files, "get"):
+            for clave in ("file", "archivo", "archivos", "files"):
+                valor = files.get(clave)  # type: ignore[attr-defined]
+                if valor:
+                    _agregar(valor)
 
         archivos_unicos: List[Any] = []
         vistos = set()
