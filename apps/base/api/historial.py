@@ -42,10 +42,17 @@ class HistorialEnviosDetailAPIView(generics.RetrieveAPIView):
 class ExportarHistorialExcelView(View):
     def get(self, request, *args, **kwargs):
         usuario = request.GET.get("usuario")
+        usuario_nombre = request.GET.get("usuario_nombre")
         proyecto = request.GET.get("proyecto")
+        proyecto_nombre = request.GET.get("proyecto_nombre")
         estado = request.GET.get("estado_enviado")
-        fecha_inicio = request.GET.get("created_at__gte")
-        fecha_fin = request.GET.get("created_at__lte")
+        created_at_desde = request.GET.get("created_at_desde")
+        created_at_hasta = request.GET.get("created_at_hasta")
+        inicio_envio_desde = request.GET.get("inicio_envio_desde")
+        fin_envio_hasta = request.GET.get("fin_envio_hasta")
+        medio_url = request.GET.get("medio_url")
+        medio_url_coincide = request.GET.get("medio_url_coincide")
+        red_social_nombre = request.GET.get("red_social_nombre")
         search = request.GET.get("search")
 
         queryset = DetalleEnvio.objects.select_related(
@@ -55,14 +62,36 @@ class ExportarHistorialExcelView(View):
         # Filtros
         if usuario:
             queryset = queryset.filter(usuario_id=usuario)
+        if usuario_nombre:
+            queryset = queryset.filter(usuario__username__icontains=usuario_nombre)
         if proyecto:
             queryset = queryset.filter(proyecto_id=proyecto)
-        if isinstance(estado, str) and estado.lower() in {"true", "false"}:
-            queryset = queryset.filter(estado_enviado=estado.lower() == "true")
-        if fecha_inicio:
-            queryset = queryset.filter(created_at__gte=fecha_inicio)
-        if fecha_fin:
-            queryset = queryset.filter(created_at__lte=fecha_fin)
+        if proyecto_nombre:
+            queryset = queryset.filter(proyecto__nombre__icontains=proyecto_nombre)
+        if isinstance(estado, str):
+            estado_normalizado = estado.strip().lower()
+            valores_verdaderos = {"true", "1", "si", "sí", "enviado"}
+            valores_falsos = {"false", "0", "no", "pendiente", "no_enviado", "no enviado"}
+            if estado_normalizado in valores_verdaderos:
+                queryset = queryset.filter(estado_enviado=True)
+            elif estado_normalizado in valores_falsos:
+                queryset = queryset.filter(estado_enviado=False)
+        if created_at_desde:
+            queryset = queryset.filter(created_at__gte=created_at_desde)
+        if created_at_hasta:
+            queryset = queryset.filter(created_at__lte=created_at_hasta)
+        if inicio_envio_desde:
+            queryset = queryset.filter(inicio_envio__gte=inicio_envio_desde)
+        if fin_envio_hasta:
+            queryset = queryset.filter(fin_envio__lte=fin_envio_hasta)
+        if medio_url:
+            queryset = queryset.filter(medio__url=medio_url)
+        if medio_url_coincide:
+            queryset = queryset.filter(medio__url__icontains=medio_url_coincide)
+        if red_social_nombre:
+            queryset = queryset.filter(
+                red_social__red_social__nombre__icontains=red_social_nombre
+            )
         if search:
             queryset = queryset.filter(
                 Q(mensaje__icontains=search)
