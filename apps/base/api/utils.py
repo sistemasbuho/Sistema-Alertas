@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 from urllib.parse import urlparse, urlunparse
 
 from django.utils import timezone
@@ -159,10 +159,39 @@ def combinar_fecha_hora(fecha_value: Any, hora_value: Any) -> Optional[datetime]
     return asegurar_timezone(combinado)
 
 
-def formatear_fecha_respuesta(value: Optional[datetime]) -> Optional[str]:
-    if not value:
+def formatear_fecha_respuesta(value: Optional[Union[datetime, str]]) -> Optional[str]:
+    if value in (None, ""):
         return None
-    return asegurar_timezone(value).astimezone(timezone.get_current_timezone()).isoformat()
+
+    fecha: Optional[datetime]
+    if isinstance(value, str):
+        texto = value.strip()
+        if not texto:
+            return None
+        fecha = parse_datetime(texto)
+        if not fecha:
+            return texto
+    else:
+        fecha = value
+
+    fecha_asegurada = asegurar_timezone(fecha)
+    if not fecha_asegurada:
+        return None
+
+    fecha_local = fecha_asegurada.astimezone(timezone.get_current_timezone())
+
+    hora_24 = fecha_local.hour
+    hora_12 = hora_24 % 12 or 12
+    if hora_24 < 12 and hora_12 < 10:
+        hora_formateada = f"{hora_12:02d}"
+    else:
+        hora_formateada = str(hora_12)
+
+    minutos = f"{fecha_local.minute:02d}"
+    segundos = f"{fecha_local.second:02d}"
+    periodo = "AM" if hora_24 < 12 else "PM"
+
+    return f"{fecha_local.strftime('%Y-%m-%d')} {hora_formateada}:{minutos}:{segundos} {periodo}"
 
 
 def normalizar_valor_adicional(value: Any) -> Optional[Any]:
