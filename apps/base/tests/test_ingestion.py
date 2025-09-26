@@ -66,6 +66,49 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(len(listado), 1)
         self.assertEqual(listado[0]["autor"], "Autor")
         self.assertEqual(listado[0]["tipo"], "medios")
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "1 registros creados")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo,Contenido,2024-01-01,Autor,1000\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=ValueError("La URL ya existe para este proyecto"),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["duplicados"], 1)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertIn("1 duplicados", response.data["mensaje"])
+        self.assertEqual(len(response.data["errores"]), 1)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_redes_twk_from_xlsx_and_forwards_payload(self, mock_proyecto):
@@ -124,6 +167,49 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["contenido"], self.ultimo_registro_red.get("contenido"))
         self.assertEqual(alerta["engagement"], self.ultimo_registro_red.get("engagement"))
         self.assertEqual(alerta["tipo"], "redes")
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "1 registros creados")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_respuesta_incluye_conteo_de_descartados(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo,Contenido,2024-01-01,Autor,1000\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=RuntimeError("Error inesperado"),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 1)
+        self.assertIn("1 descartados", response.data["mensaje"])
+        self.assertEqual(len(response.data["errores"]), 1)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_redes_twk_trim_contenido_for_twitter_qt(self, mock_proyecto):
@@ -188,6 +274,8 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["contenido"], self.ultimo_registro_red.get("contenido"))
         self.assertEqual(alerta["red_social"], None)
         self.assertEqual(alerta["tipo"], "redes")
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_permite_multiples_archivos_en_una_misma_peticion(self, mock_proyecto):
@@ -237,6 +325,9 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(len(listado), 2)
         autores = {alerta["autor"] for alerta in listado}
         self.assertSetEqual(autores, {"Autor 1", "Autor 2"})
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "2 registros creados")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
@@ -277,6 +368,9 @@ class IngestionAPITests(SimpleTestCase):
         payload = response.data
         self.assertEqual(len(payload["listado"]), 1)
         self.assertEqual(payload["listado"][0]["titulo"], "Alerta importante")
+        self.assertEqual(payload["duplicados"], 0)
+        self.assertEqual(payload["descartados"], 0)
+        self.assertEqual(payload["mensaje"], "1 registros creados")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_filtro_de_criterios_sin_coincidencias_no_reenvia(self, mock_proyecto):
@@ -308,6 +402,8 @@ class IngestionAPITests(SimpleTestCase):
         mock_forward.assert_not_called()
         self.assertIn("mensaje", response.data)
         self.assertIn("criterios", response.data["mensaje"])
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
 
     def test_construir_payload_forward_usa_tipo_alerta_del_proyecto(self):
         proyecto = SimpleNamespace(id=self.proyecto_id, tipo_alerta="redes")
@@ -367,6 +463,9 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNone(self.ultimo_registro_articulo)
         self.assertIsNotNone(self.ultimo_registro_red)
         self.assertEqual(response.data["listado"][0]["tipo"], "redes")
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "1 registros creados")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_registro_manual_usa_tipo_alerta_medios_del_proyecto(self, mock_proyecto):
@@ -403,6 +502,9 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(self.ultimo_registro_articulo)
         self.assertIsNone(self.ultimo_registro_red)
         self.assertEqual(response.data["listado"][0]["tipo"], "medios")
+        self.assertEqual(response.data["duplicados"], 0)
+        self.assertEqual(response.data["descartados"], 0)
+        self.assertEqual(response.data["mensaje"], "1 registros creados")
 
     def _fake_crear_articulo(self, registro, proyecto, sistema_user):
         self.ultimo_registro_articulo = registro

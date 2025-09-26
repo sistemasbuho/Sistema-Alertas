@@ -204,6 +204,8 @@ class IngestionAPIView(APIView):
             "mensaje": "0 registros cumplen con los criterios de aceptación configurados.",
             "listado": [],
             "errores": [],
+            "duplicados": 0,
+            "descartados": 0,
             "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
         }
 
@@ -215,11 +217,26 @@ class IngestionAPIView(APIView):
         proyecto: Proyecto,
     ) -> Dict[str, Any]:
         proveedor_respuesta = registros_filtrados[0].get("proveedor") or proveedor
+        total_creados = len(resultado["listado"])
+        duplicados = resultado.get("duplicados", 0)
+        descartados = resultado.get("descartados", 0)
+        detalles: List[str] = []
+        if duplicados:
+            detalles.append(f"{duplicados} duplicados")
+        if descartados:
+            detalles.append(f"{descartados} descartados")
+
+        mensaje = f"{total_creados} registros creados"
+        if detalles:
+            mensaje = f"{mensaje} ({', '.join(detalles)})"
+
         return {
             "proveedor": proveedor_respuesta,
-            "mensaje": f"{len(resultado['listado'])} registros creados",
+            "mensaje": mensaje,
             "listado": resultado["listado"],
             "errores": resultado["errores"],
+            "duplicados": duplicados,
+            "descartados": descartados,
             "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
         }
 
@@ -601,6 +618,8 @@ class IngestionAPIView(APIView):
     def _persistir_registros(self, registros: List[Dict[str, Any]], proyecto: Proyecto) -> Dict[str, List[Dict[str, Any]]]:
         errores: List[Dict[str, Any]] = []
         listado: List[Dict[str, Any]] = []
+        duplicados = 0
+        descartados = 0
         sistema_user = self._obtener_usuario_sistema()
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
@@ -618,8 +637,18 @@ class IngestionAPIView(APIView):
                     )
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Error procesando fila %s", indice)
-                errores.append({"fila": indice, "error": str(exc)})
-        return {"listado": listado, "errores": errores}
+                mensaje_error = str(exc)
+                if isinstance(exc, ValueError) and "ya existe" in mensaje_error.lower():
+                    duplicados += 1
+                else:
+                    descartados += 1
+                errores.append({"fila": indice, "error": mensaje_error})
+        return {
+            "listado": listado,
+            "errores": errores,
+            "duplicados": duplicados,
+            "descartados": descartados,
+        }
 
     def _crear_articulo(self, registro: Dict[str, Any], proyecto: Proyecto, sistema_user) -> Articulo:
         with transaction.atomic():
