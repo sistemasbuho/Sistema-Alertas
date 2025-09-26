@@ -1,18 +1,16 @@
-from rest_framework import viewsets, filters
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from apps.base.models import DetalleEnvio
-from apps.base.serializers.serializer_historial import DetalleEnvioSerializer
-from apps.base.api.filtros import DetalleEnvioFilter
-from rest_framework import generics
-from apps.base.api.filtros import PaginacionEstandar
+from django.http import HttpResponse
+from django.utils.encoding import escape_uri_path
 from django.views import View
 import openpyxl
-from openpyxl.utils import get_column_letter
-from django.http import HttpResponse
+from rest_framework import filters, generics, viewsets
 from rest_framework.filters import SearchFilter
-from django.utils.encoding import escape_uri_path
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import filters
+
+from apps.base.api.filtros import DetalleEnvioFilter, PaginacionEstandar
+from apps.base.models import DetalleEnvio
+from apps.base.serializers.serializer_historial import DetalleEnvioSerializer
 
 
 
@@ -59,7 +57,7 @@ class ExportarHistorialExcelView(View):
             queryset = queryset.filter(usuario_id=usuario)
         if proyecto:
             queryset = queryset.filter(proyecto_id=proyecto)
-        if estado is not None:
+        if isinstance(estado, str) and estado.lower() in {"true", "false"}:
             queryset = queryset.filter(estado_enviado=estado.lower() == "true")
         if fecha_inicio:
             queryset = queryset.filter(created_at__gte=fecha_inicio)
