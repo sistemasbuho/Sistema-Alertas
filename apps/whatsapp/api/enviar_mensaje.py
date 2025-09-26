@@ -15,6 +15,8 @@ from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 from apps.proyectos.models import Proyecto
 from django.contrib.auth import get_user_model
 
+from apps.whatsapp.utils import ordenar_alertas_por_fecha
+
 
 logger = logging.getLogger(__name__)
 
@@ -429,6 +431,8 @@ class EnviarMensajeAPIView(APIView):
 
         enviados = []
         no_enviados = []
+
+        alertas = ordenar_alertas_por_fecha(alertas)
 
         for alerta in alertas:
             alerta_id = alerta.get("id")
