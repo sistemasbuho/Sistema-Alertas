@@ -556,11 +556,12 @@ class IngestionAPIView(APIView):
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
         alertas = []
         for registro in registros:
+            fecha_legible = formatear_fecha_respuesta(registro.get("fecha"))
             alerta = {
                 "tipo": tipo_alerta_proyecto or registro.get("tipo"),
                 "titulo": registro.get("titulo"),
                 "contenido": registro.get("contenido"),
-                "fecha": formatear_fecha_respuesta(registro.get("fecha")),
+                "fecha": fecha_legible,
                 "autor": registro.get("autor"),
                 "reach": registro.get("reach"),
                 "engagement": registro.get("engagement"),
@@ -759,12 +760,13 @@ class IngestionAPIView(APIView):
         registro: Dict[str, Any],
         tipo_alerta: Optional[str] = None,
     ) -> Dict[str, Any]:
+        fecha_origen = articulo.fecha_publicacion or registro.get("fecha")
         return {
             "id": str(articulo.id),
             "tipo": (tipo_alerta or "articulo"),
             "titulo": articulo.titulo,
             "contenido": articulo.contenido,
-            "fecha": formatear_fecha_respuesta(articulo.fecha_publicacion),
+            "fecha": formatear_fecha_respuesta(fecha_origen),
             "autor": articulo.autor,
             "reach": articulo.reach,
             "engagement": None,
@@ -780,12 +782,13 @@ class IngestionAPIView(APIView):
         registro: Dict[str, Any],
         tipo_alerta: Optional[str] = None,
     ) -> Dict[str, Any]:
+        fecha_origen = red.fecha_publicacion or registro.get("fecha")
         return {
             "id": str(red.id),
             "tipo": (tipo_alerta or "red"),
             "titulo": None,
             "contenido": red.contenido,
-            "fecha": formatear_fecha_respuesta(red.fecha_publicacion),
+            "fecha": formatear_fecha_respuesta(fecha_origen),
             "autor": red.autor,
             "reach": red.reach,
             "engagement": red.engagement,

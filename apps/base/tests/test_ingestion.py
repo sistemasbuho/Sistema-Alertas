@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
 from apps.base.api.ingestion import IngestionAPIView
+from apps.base.api.utils import formatear_fecha_respuesta
 
 
 class IngestionAPITests(SimpleTestCase):
@@ -640,3 +641,85 @@ class ObtenerArchivosTests(SimpleTestCase):
 
         self.assertEqual(len(archivos), 2)
         self.assertEqual({a.name for a in archivos}, {"archivo-uno.csv", "archivo-dos.csv"})
+
+
+class FormatearFechaRespuestaTests(SimpleTestCase):
+    def test_formatea_fecha_iso_am(self):
+        resultado = formatear_fecha_respuesta("2025-09-23T08:00:38.000Z")
+        self.assertEqual(resultado, "2025-09-23 08:00:38 AM")
+
+    def test_formatea_fecha_iso_pm(self):
+        resultado = formatear_fecha_respuesta("2025-09-23T16:01:38.000Z")
+        self.assertEqual(resultado, "2025-09-23 4:01:38 PM")
+
+
+class IngestionFormatoFechaTests(SimpleTestCase):
+    def setUp(self):
+        self.view = IngestionAPIView()
+        self.proyecto = SimpleNamespace(
+            id="123e4567-e89b-12d3-a456-426614174000",
+            tipo_alerta="medios",
+        )
+
+    def test_construir_payload_forward_formatea_fecha_iso(self):
+        registros = [
+            {
+                "tipo": "articulo",
+                "titulo": "Titulo",
+                "contenido": "Contenido",
+                "fecha": "2025-09-23T16:01:38.000Z",
+                "autor": "Autor",
+                "reach": 10,
+                "engagement": 5,
+                "url": "http://example.com",
+                "red_social": None,
+                "datos_adicionales": {},
+                "proveedor": "medios_twk",
+            }
+        ]
+
+        payload = self.view._construir_payload_forward("medios", registros, self.proyecto)
+
+        self.assertEqual(payload["alertas"][0]["fecha"], "2025-09-23 4:01:38 PM")
+
+    def test_serializar_articulo_usa_formato_legible(self):
+        registro = {
+            "proveedor": "medios_twk",
+            "datos_adicionales": {},
+            "fecha": "2025-09-23T08:00:38.000Z",
+        }
+        articulo = SimpleNamespace(
+            id="articulo-id",
+            titulo="Titulo",
+            contenido="Contenido",
+            fecha_publicacion=None,
+            autor="Autor",
+            reach=10,
+            url="http://example.com/articulo",
+        )
+
+        resultado = self.view._serializar_articulo(articulo, registro, None)
+
+        self.assertEqual(resultado["fecha"], "2025-09-23 08:00:38 AM")
+
+    def test_serializar_red_usa_formato_legible(self):
+        registro = {
+            "proveedor": "redes_twk",
+            "datos_adicionales": {},
+            "fecha": "2025-09-23T16:01:38.000Z",
+            "red_social": "twitter.com",
+        }
+        red = SimpleNamespace(
+            id="red-id",
+            contenido="Contenido",
+            fecha_publicacion=None,
+            autor="Autor",
+            reach=5,
+            engagement=2,
+            url="http://example.com/red",
+            red_social=None,
+        )
+
+        resultado = self.view._serializar_red(red, registro, "red")
+
+        self.assertEqual(resultado["fecha"], "2025-09-23 4:01:38 PM")
