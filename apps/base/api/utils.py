@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
+from urllib.parse import urlparse, urlunparse
 
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime, parse_time
@@ -13,11 +14,48 @@ def limpiar_texto(value: Any) -> Optional[str]:
     return str(value).strip()
 
 
-def limpiar_url(value: Any) -> Optional[str]:
+def normalizar_url(value: Any) -> Optional[str]:
     valor = limpiar_texto(value)
     if not valor:
         return None
-    return valor
+
+    parsed = urlparse(valor, scheme="http")
+
+    netloc = parsed.netloc
+    path = parsed.path or ""
+
+    if not netloc and parsed.path:
+        netloc = parsed.path
+        path = ""
+
+    netloc = netloc.rstrip("/")
+
+    if netloc.lower().startswith("www."):
+        netloc = netloc[4:]
+
+    scheme = parsed.scheme.lower() if parsed.scheme else "http"
+    if scheme != "http":
+        scheme = "http"
+
+    path = path.rstrip("/")
+
+    cleaned = urlunparse(
+        (
+            scheme,
+            netloc,
+            path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+    return cleaned or None
+
+
+def limpiar_url(value: Any) -> Optional[str]:
+    """Compatibilidad retroactiva con el nombre anterior de la función."""
+    return normalizar_url(value)
 
 
 def parsear_entero(value: Any) -> Optional[int]:
