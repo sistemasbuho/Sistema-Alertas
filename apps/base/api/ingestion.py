@@ -140,42 +140,59 @@ class IngestionAPIView(APIView):
             )
             return [registro_manual], registro_manual.get("proveedor"), None
 
-        archivo = self._obtener_archivo(request)
-        if not archivo:
+        archivos = self._obtener_archivos(request)
+        if not archivos:
             return [], None, Response(
                 {"detail": "Se requiere un archivo CSV o XLSX."},
                 status=400,
             )
 
-        extension = os.path.splitext(archivo.name)[1].lower()
-        if extension not in {".csv", ".xlsx"}:
-            return [], None, Response(
-                {"detail": "Formato de archivo no soportado."},
-                status=400,
-            )
+        registros_acumulados: List[Dict[str, Any]] = []
+        proveedores_detectados: List[str] = []
 
-        headers, rows = self._parse_file(archivo, extension)
-        if not headers:
-            return [], None, Response(
-                {"detail": "El archivo no contiene encabezados válidos."},
-                status=400,
-            )
+        for archivo in archivos:
+            extension = os.path.splitext(archivo.name)[1].lower()
+            if extension not in {".csv", ".xlsx"}:
+                return [], None, Response(
+                    {"detail": "Formato de archivo no soportado."},
+                    status=400,
+                )
 
-        provider = self._detectar_proveedor(headers)
-        if not provider:
-            return [], None, Response(
-                {"detail": "No fue posible determinar el tipo de datos del archivo."},
-                status=400,
-            )
+            headers, rows = self._parse_file(archivo, extension)
+            if not headers:
+                return [], None, Response(
+                    {"detail": "El archivo no contiene encabezados válidos."},
+                    status=400,
+                )
 
-        registros_estandar = self._mapear_filas(provider, rows)
-        if not registros_estandar:
-            return [], provider, Response(
-                {"detail": "No se encontraron filas válidas en el archivo."},
-                status=400,
-            )
+            provider = self._detectar_proveedor(headers)
+            if not provider:
+                return [], None, Response(
+                    {
+                        "detail": "No fue posible determinar el tipo de datos del archivo.",
+                    },
+                    status=400,
+                )
 
-        return registros_estandar, provider, None
+            registros_estandar = self._mapear_filas(provider, rows)
+            if not registros_estandar:
+                return [], provider, Response(
+                    {"detail": "No se encontraron filas válidas en el archivo."},
+                    status=400,
+                )
+
+            registros_acumulados.extend(registros_estandar)
+            proveedores_detectados.append(provider)
+
+        provider_final: Optional[str] = None
+        if proveedores_detectados:
+            provider_final = proveedores_detectados[0]
+            for proveedor in proveedores_detectados[1:]:
+                if proveedor != provider_final:
+                    provider_final = "multiple"
+                    break
+
+        return registros_acumulados, provider_final, None
 
     def _construir_respuesta_sin_registros(
         self,
@@ -222,8 +239,30 @@ class IngestionAPIView(APIView):
             return None
         return Proyecto.objects.filter(id=proyecto_id).first()
 
-    def _obtener_archivo(self, request):
-        return request.FILES.get("file") or request.FILES.get("archivo")
+    def _obtener_archivos(self, request) -> List[Any]:
+        archivos: List[Any] = []
+        files = getattr(request, "FILES", None)
+        if not files:
+            return archivos
+
+        if hasattr(files, "getlist"):
+            for key in ("file", "archivo"):
+                archivos.extend([archivo for archivo in files.getlist(key) if archivo])
+        else:
+            for key in ("file", "archivo"):
+                archivo = files.get(key)
+                if archivo:
+                    archivos.append(archivo)
+
+        archivos_unicos: List[Any] = []
+        vistos = set()
+        for archivo in archivos:
+            identificador = id(archivo)
+            if identificador in vistos:
+                continue
+            vistos.add(identificador)
+            archivos_unicos.append(archivo)
+        return archivos_unicos
 
     def _obtener_registro_manual(self, request) -> Optional[Dict[str, Any]]:
         data_sources = [request.data, request.POST]

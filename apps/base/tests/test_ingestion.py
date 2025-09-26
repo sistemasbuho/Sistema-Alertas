@@ -190,6 +190,55 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["tipo"], "redes")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    def test_permite_multiples_archivos_en_una_misma_peticion(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content_uno = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo 1,Contenido 1,2024-01-01,Autor 1,1000\n"
+        )
+        content_dos = (
+            "title,content,published,extra_author_attributes.name,reach\n"
+            "Titulo 2,Contenido 2,2024-02-02,Autor 2,500\n"
+        )
+        uploaded_uno = SimpleUploadedFile(
+            "medios-uno.csv",
+            content_uno.encode("utf-8"),
+            content_type="text/csv",
+        )
+        uploaded_dos = SimpleUploadedFile(
+            "medios-dos.csv",
+            content_dos.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": [uploaded_uno, uploaded_dos]},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 2)
+        autores = {alerta["autor"] for alerta in listado}
+        self.assertSetEqual(autores, {"Autor 1", "Autor 2"})
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto, criterios=["alerta"])
         content = (
