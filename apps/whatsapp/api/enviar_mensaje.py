@@ -5,12 +5,14 @@ from django.utils.timezone import now
 from datetime import datetime
 import logging
 import os
+import time
 from urllib.parse import urljoin
 import requests
 from rest_framework import status
 from django.utils import timezone
 from typing import Optional, Tuple
 
+from apps.base.api.utils import formatear_fecha_respuesta
 from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 from apps.proyectos.models import Proyecto
 from django.contrib.auth import get_user_model
@@ -63,6 +65,23 @@ def _aplicar_estilos(
         valor_formateado = f"{etiqueta_str}{separador}{valor_formateado}"
 
     return valor_formateado, salto_linea
+
+
+def _obtener_fecha_legible(alerta: dict, *campos: str) -> str:
+    """Devuelve la primera fecha legible disponible en los campos indicados."""
+
+    for campo in campos:
+        valor = alerta.get(campo)
+        if valor in (None, ""):
+            continue
+
+        fecha_legible = formatear_fecha_respuesta(valor)
+        if fecha_legible:
+            return fecha_legible
+
+        return str(valor)
+
+    return ""
 
 
 def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
@@ -152,7 +171,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             mensaje_original = alerta.get("contenido", "")
             titulo = alerta.get("titulo", "")
             autor = alerta.get("autor", "")
-            fecha = alerta.get("fecha", "")
+            fecha_legible = _obtener_fecha_legible(alerta, "fecha", "fecha_publicacion")
 
             if not alerta_id:
                 no_enviados.append({"alerta_id": alerta_id, "error": "Falta ID de alerta"})
@@ -163,7 +182,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 "titulo": titulo,
                 "contenido": mensaje_original,
                 "autor": autor,
-                "fecha": fecha,
+                "fecha": fecha_legible,
             }
 
             # Formatear mensaje con la plantilla
@@ -440,7 +459,7 @@ class EnviarMensajeAPIView(APIView):
             mensaje_original = alerta.get("contenido", "")
             titulo = alerta.get("titulo", "")
             autor = alerta.get("autor", "")
-            fecha = alerta.get("fecha", "")
+            fecha_legible = _obtener_fecha_legible(alerta, "fecha", "fecha_publicacion")
             reach = alerta.get("reach", "")
             engagement = alerta.get("engagement", "")
 
@@ -454,7 +473,7 @@ class EnviarMensajeAPIView(APIView):
                 "titulo": titulo,
                 "contenido": mensaje_original,
                 "autor": autor,
-                "fecha_publicacion": fecha,
+                "fecha_publicacion": fecha_legible,
                 "reach" : reach,
                 "engagement" :engagement
 
@@ -595,7 +614,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
         mensaje_original = alerta.get("contenido", "")
         titulo = alerta.get("titulo", "")
         autor = alerta.get("autor", "")
-        fecha = alerta.get("fecha", "")
+        fecha_legible = _obtener_fecha_legible(alerta, "fecha", "fecha_publicacion")
         reach = alerta.get("reach", "")
         engagement = alerta.get("engagement", "")
 
@@ -609,7 +628,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             "titulo": titulo,
             "contenido": mensaje_original,
             "autor": autor,
-            "fecha_publicacion": fecha,
+            "fecha_publicacion": fecha_legible,
             "reach": reach,
             "engagement": engagement,
         }
