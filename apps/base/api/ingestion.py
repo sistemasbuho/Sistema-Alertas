@@ -263,10 +263,21 @@ class IngestionAPIView(APIView):
             return archivos
 
         if hasattr(files, "getlist"):
-            for key in ("file", "archivo"):
-                archivos.extend([archivo for archivo in files.getlist(key) if archivo])
+            keys = list(getattr(files, "keys", lambda: [])())  # type: ignore[misc]
+            if not keys:
+                keys = ["file", "archivo"]
+
+            for key in keys:
+                for archivo in files.getlist(key):
+                    if archivo:
+                        archivos.append(archivo)
         else:
-            for key in ("file", "archivo"):
+            posibles_claves = set()
+            if hasattr(files, "keys"):
+                posibles_claves.update(files.keys())  # type: ignore[attr-defined]
+            posibles_claves.update({"file", "archivo"})
+
+            for key in posibles_claves:
                 archivo = files.get(key)
                 if archivo:
                     archivos.append(archivo)
