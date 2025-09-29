@@ -2,14 +2,16 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
-from datetime import datetime
+import json
 import logging
 import os
 import time
+from datetime import datetime
 from urllib.parse import urljoin
 import requests
 from rest_framework import status
 from django.utils import timezone
+from collections.abc import Iterable
 from typing import Optional, Tuple
 
 from apps.base.api.utils import formatear_fecha_respuesta
@@ -84,6 +86,28 @@ def _obtener_fecha_legible(alerta: dict, *campos: str) -> str:
     return ""
 
 
+def _normalizar_emojis(emojis) -> str:
+    """Devuelve un string con los emojis limpios o vacío si no hay información."""
+
+    if emojis is None:
+        return ""
+
+    if isinstance(emojis, str):
+        return emojis.strip()
+
+    if isinstance(emojis, Iterable):
+        partes = []
+        for item in emojis:
+            if item is None:
+                continue
+            texto = str(item).strip()
+            if texto:
+                partes.append(texto)
+        return " ".join(partes)
+
+    return str(emojis).strip()
+
+
 def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
     """
     Genera un mensaje formateado aplicando la plantilla de estilos y orden.
@@ -121,27 +145,17 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
     mensaje_final = "".join(mensaje)
 
-    emojis = alerta.get("emojis")
-    if emojis:
-        if isinstance(emojis, (list, tuple)):
-            emojis_limpios = []
-            for item in emojis:
-                if item is None:
-                    continue
-                item_str = str(item).strip()
-                if item_str:
-                    emojis_limpios.append(item_str)
-            emojis = " ".join(emojis_limpios)
-        else:
-            emojis = str(emojis).strip()
-
-        if emojis:
-            if mensaje_final:
-                mensaje_final = f"{emojis} {mensaje_final}"
-            else:
-                mensaje_final = emojis
+    emojis_texto = _normalizar_emojis(alerta.get("emojis"))
+    if emojis_texto:
+        mensaje_final = (
+            f"{emojis_texto} {mensaje_final}"
+            if mensaje_final
+            else emojis_texto
+        )
 
     return mensaje_final
+
+
 
 
 
