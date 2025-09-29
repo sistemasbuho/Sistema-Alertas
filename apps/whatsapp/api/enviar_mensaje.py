@@ -298,6 +298,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 "contenido": mensaje_original,
                 "autor": autor,
                 "fecha": fecha_legible,
+                "emojis": alerta.get("emojis"),
             }
 
             # Formatear mensaje con la plantilla
@@ -461,7 +462,8 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
                 "mensaje": mensaje,
                 "fecha": fecha_pub,
                 "autor": autor,
-                "alcance": alcance
+                "alcance": alcance,
+                "emojis": record.get("emojis"),
             })
 
             for alerta in procesadas:
@@ -615,7 +617,8 @@ class EnviarMensajeAPIView(APIView):
                 "autor": autor,
                 "fecha_publicacion": fecha_legible,
                 "reach" : reach,
-                "engagement" :engagement
+                "engagement" :engagement,
+                "emojis": alerta.get("emojis"),
 
             }
 
@@ -796,6 +799,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             "fecha_publicacion": fecha_legible,
             "reach": reach,
             "engagement": engagement,
+            "emojis": alerta.get("emojis"),
         }
         mensaje_formateado = formatear_mensaje(
             alerta_data,
