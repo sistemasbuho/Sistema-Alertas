@@ -64,16 +64,19 @@ def _aplicar_estilos(
                 etiqueta_formateada = f"*{etiqueta_formateada}*"
         if estilo.get("inclinado"):
             valor_base = f"_{valor_base}_"
+            if etiqueta_formateada is not None:
+                etiqueta_formateada = f"_{etiqueta_formateada}_"
 
     salto_linea = estilo.get("salto_linea") if estilo else None
 
     valor_formateado = valor_base
 
     if etiqueta_formateada is not None and etiqueta_str is not None:
-        separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": ""
+        separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": "
         valor_formateado = f"{etiqueta_formateada}{separador}{valor_formateado}"
 
     return valor_formateado, salto_linea
+
 
 
 def _obtener_fecha_legible(alerta: dict, *campos: str) -> str:
