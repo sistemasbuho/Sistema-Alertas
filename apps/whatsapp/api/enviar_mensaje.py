@@ -119,7 +119,29 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
                 mensaje.append("\n")
         mensaje.append(valor)
 
-    return "".join(mensaje)
+    mensaje_final = "".join(mensaje)
+
+    emojis = alerta.get("emojis")
+    if emojis:
+        if isinstance(emojis, (list, tuple)):
+            emojis_limpios = []
+            for item in emojis:
+                if item is None:
+                    continue
+                item_str = str(item).strip()
+                if item_str:
+                    emojis_limpios.append(item_str)
+            emojis = " ".join(emojis_limpios)
+        else:
+            emojis = str(emojis).strip()
+
+        if emojis:
+            if mensaje_final:
+                mensaje_final = f"{emojis} {mensaje_final}"
+            else:
+                mensaje_final = emojis
+
+    return mensaje_final
 
 
 
