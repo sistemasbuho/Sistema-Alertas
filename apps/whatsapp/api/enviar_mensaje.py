@@ -157,6 +157,8 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
 
 
+
+
 def _enviar_muchos_en_uno(
     pendientes_envio,
     *,

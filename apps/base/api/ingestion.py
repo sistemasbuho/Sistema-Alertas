@@ -207,6 +207,7 @@ class IngestionAPIView(APIView):
             "duplicados": 0,
             "descartados": 0,
             "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
+            "proyecto_nombre": self._obtener_nombre_proyecto(proyecto),
         }
 
     def _construir_respuesta_exito(
@@ -238,6 +239,7 @@ class IngestionAPIView(APIView):
             "duplicados": duplicados,
             "descartados": descartados,
             "proyecto_keywords": self._obtener_keywords_proyecto(proyecto),
+            "proyecto_nombre": self._obtener_nombre_proyecto(proyecto),
         }
 
     # ------------------------------------------------------------------
@@ -545,6 +547,16 @@ class IngestionAPIView(APIView):
             ]
 
         return []
+
+    def _obtener_nombre_proyecto(self, proyecto: Optional[Proyecto]) -> str:
+        if not proyecto:
+            return ""
+
+        nombre = getattr(proyecto, "nombre", "")
+        if not nombre:
+            return ""
+
+        return str(nombre)
 
     def _construir_payload_forward(
         self,
