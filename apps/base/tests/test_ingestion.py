@@ -20,12 +20,15 @@ class IngestionAPITests(SimpleTestCase):
         self.ultimo_registro_articulo = None
         self.ultimo_registro_red = None
 
-    def _mock_proyecto(self, mock_proyecto, criterios=None, tipo_alerta="medios"):
+    def _mock_proyecto(
+        self, mock_proyecto, criterios=None, tipo_alerta="medios", nombre="Proyecto Test"
+    ):
         criterios = criterios or []
         proyecto = SimpleNamespace(
             id=self.proyecto_id,
             get_criterios_aceptacion_list=lambda: criterios,
             tipo_alerta=tipo_alerta,
+            nombre=nombre,
         )
         mock_proyecto.objects.filter.return_value.first.return_value = proyecto
 
@@ -71,6 +74,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["duplicados"], 0)
         self.assertEqual(response.data["descartados"], 0)
         self.assertEqual(response.data["mensaje"], "1 registros creados")
+        self.assertEqual(response.data["proyecto_nombre"], "Proyecto Test")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
@@ -111,6 +115,27 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["descartados"], 0)
         self.assertIn("1 duplicados", response.data["mensaje"])
         self.assertEqual(len(response.data["errores"]), 1)
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_respuesta_sin_registros_incluye_nombre(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}", {}, format="multipart"
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_extraer_registros_estandar",
+            return_value=([{"proveedor": "medios"}], "medios", None),
+        ), patch.object(
+            IngestionAPIView, "_filtrar_por_criterios", return_value=[]
+        ), patch.object(
+            IngestionAPIView, "_notificar_ruta_externa"
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["proyecto_nombre"], "Proyecto Test")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_redes_twk_from_xlsx_and_forwards_payload(self, mock_proyecto):
