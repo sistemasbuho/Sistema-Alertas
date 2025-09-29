@@ -146,12 +146,15 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
     mensaje_final = "".join(mensaje)
 
     emojis_texto = _normalizar_emojis(alerta.get("emojis"))
-    if emojis_texto:
+
+    if emojis_texto and mensaje_final:
+        lineas = mensaje_final.split("\n", 1) 
+        primera = f"{emojis_texto} {lineas[0]}" 
         mensaje_final = (
-            f"{emojis_texto} {mensaje_final}"
-            if mensaje_final
-            else emojis_texto
+            "\n".join([primera] + lineas[1:]) if len(lineas) > 1 else primera
         )
+    elif emojis_texto:
+        mensaje_final = emojis_texto
 
     return mensaje_final
 
