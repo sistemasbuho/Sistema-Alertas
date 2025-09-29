@@ -36,12 +36,11 @@ def ordenar_alertas_por_fecha(
     campo_fecha: str = "fecha_publicacion",
     campo_respaldo: str = "fecha",
 ) -> List[MutableMapping]:
-    """Devuelve las alertas ordenadas de la más reciente a la más antigua."""
+    """Devuelve las alertas ordenadas de la más antigua a la más reciente."""
 
     alertas_lista = list(alertas or [])
 
     return sorted(
         alertas_lista,
         key=lambda alerta: _obtener_fecha(alerta, campo_fecha=campo_fecha, campo_respaldo=campo_respaldo),
-        reverse=True,
     )
