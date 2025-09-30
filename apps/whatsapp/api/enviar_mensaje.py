@@ -55,7 +55,10 @@ def _aplicar_estilos(
 
     if etiqueta is not None:
         etiqueta_str = str(etiqueta)
-        etiqueta_formateada = etiqueta_str
+        if etiqueta_str.strip():
+            etiqueta_formateada = etiqueta_str
+        else:
+            etiqueta_str = None
 
     if estilo:
         if estilo.get("negrita"):
@@ -72,8 +75,10 @@ def _aplicar_estilos(
     valor_formateado = valor_base
 
     if etiqueta_formateada is not None and etiqueta_str is not None:
-        separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": "
-        valor_formateado = f"{etiqueta_formateada}{separador}{valor_formateado}"
+        etiqueta_visible = etiqueta_formateada.replace("*", "").replace("_", "").strip()
+        if etiqueta_visible:
+            separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": "
+            valor_formateado = f"{etiqueta_formateada}{separador}{valor_formateado}"
 
     return valor_formateado, salto_linea
 
