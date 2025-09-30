@@ -50,30 +50,24 @@ def _aplicar_estilos(
     """Aplica los estilos soportados por la plantilla al valor recibido."""
 
     valor_base = valor
-    etiqueta_str = None
-    etiqueta_formateada = None
-
-    if etiqueta is not None:
-        etiqueta_str = str(etiqueta)
-        etiqueta_formateada = etiqueta_str
+    etiqueta_formateada = str(etiqueta) if etiqueta is not None else None
 
     if estilo:
         if estilo.get("negrita"):
             valor_base = f"*{valor_base}*"
-            if etiqueta_formateada is not None:
+            if etiqueta_formateada:
                 etiqueta_formateada = f"*{etiqueta_formateada}*"
         if estilo.get("inclinado"):
             valor_base = f"_{valor_base}_"
-            if etiqueta_formateada is not None:
+            if etiqueta_formateada:
                 etiqueta_formateada = f"_{etiqueta_formateada}_"
 
     salto_linea = estilo.get("salto_linea") if estilo else None
-
     valor_formateado = valor_base
 
-    if etiqueta_formateada is not None and etiqueta_str is not None:
-        separador = "" if etiqueta_str.endswith((" ", "\t", "\n")) else ": "
-        valor_formateado = f"{etiqueta_formateada}{separador}{valor_formateado}"
+    if etiqueta_formateada:
+        # sin agregar ": ", solo concatenamos
+        valor_formateado = f"{etiqueta_formateada}{valor_formateado}"
 
     return valor_formateado, salto_linea
 
