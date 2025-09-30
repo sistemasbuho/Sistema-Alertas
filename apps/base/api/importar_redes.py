@@ -182,13 +182,23 @@ class ImportarRedesAPIView(APIView):
         return list(redes)
 
     def _map_alerta_to_red(self, alerta: Dict[str, Any]) -> Dict[str, Any]:
+        reach = alerta.get("reach")
+        if reach is None:
+            reach = alerta.get("alcance")
+
+        engagement = alerta.get("engagement")
+        if engagement is None:
+            engagement = alerta.get("engammet")
+        if engagement is None:
+            engagement = alerta.get("engagement_rate")
+
         return {
             "contenido": alerta.get("contenido") or alerta.get("content"),
             "fecha": alerta.get("fecha") or alerta.get("published"),
             "url": alerta.get("url") or alerta.get("link"),
             "autor": alerta.get("autor") or alerta.get("autor_name"),
-            "reach": alerta.get("reach") or alerta.get("alcance"),
-            "engagement": alerta.get("engagement") or alerta.get("engammet") or alerta.get("engagement_rate"),
+            "reach": reach,
+            "engagement": engagement,
             "red_social": alerta.get("red_social") or alerta.get("social_network") or alerta.get("SOCIAL_NETWORK"),
         }
 
