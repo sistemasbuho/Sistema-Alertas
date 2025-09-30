@@ -204,6 +204,10 @@ class IngestionAPIView(APIView):
                     status=400,
                 )
 
+            error_url = self._validar_columna_url(headers, rows)
+            if error_url:
+                return [], None, error_url
+
             provider = self._detectar_proveedor(headers)
             if not provider:
                 return [], None, Response(
@@ -486,19 +490,43 @@ class IngestionAPIView(APIView):
 
         headers = [self._normalizar_encabezado(value) for value in headers_row]
         rows: List[Dict[str, Any]] = []
+        header_indices = [
+            (index, header)
+            for index, header in enumerate(headers)
+            if header
+        ]
+        columnas_con_datos = {header: False for _, header in header_indices}
+
         for row in rows_iter:
             row_dict: Dict[str, Any] = {}
-            for idx, header in enumerate(headers):
-                if not header:
-                    continue
-                row_dict[header] = row[idx] if idx < len(row) else None
-            rows.append(row_dict)
+            for idx, header in header_indices:
+                value = row[idx] if idx < len(row) else None
+                if self._valor_contiene_datos(value):
+                    columnas_con_datos[header] = True
+                    row_dict[header] = value
+            if row_dict:
+                rows.append(row_dict)
+
+        columnas_vacias = {
+            header for header, tiene_datos in columnas_con_datos.items() if not tiene_datos
+        }
+        if columnas_vacias:
+            for row_dict in rows:
+                for columna in columnas_vacias:
+                    row_dict.pop(columna, None)
         return headers, rows
 
     def _normalizar_encabezado(self, header_value) -> str:
         if header_value is None:
             return ""
         return str(header_value).strip().lower()
+
+    def _valor_contiene_datos(self, value: Any) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        return True
 
     # ------------------------------------------------------------------
     # Detección y mapeo de filas
@@ -518,6 +546,26 @@ class IngestionAPIView(APIView):
         if self._headers_corresponden_a_determ_medios(header_set):
             return "determ_medios"
         return ""
+
+    def _validar_columna_url(
+        self, headers: List[str], rows: List[Dict[str, Any]]
+    ) -> Optional[Response]:
+        headers_normalizados = {header for header in headers if header}
+        if "url" not in headers_normalizados:
+            return Response(
+                {"detail": "El archivo debe incluir una columna 'url'."},
+                status=400,
+            )
+
+        for row in rows:
+            url_valida = normalizar_url(row.get("url")) if isinstance(row, dict) else None
+            if url_valida:
+                return None
+
+        return Response(
+            {"detail": "La columna 'url' debe contener al menos un valor válido."},
+            status=400,
+        )
 
     def _headers_corresponden_a_global_news(self, header_set: set) -> bool:
         requeridos = {"autor - conductor", "medio", "fecha"}
