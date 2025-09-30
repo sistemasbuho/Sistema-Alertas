@@ -42,6 +42,33 @@ COLUMNAS_MEDIOS_TWK = {
     "reach",
 }
 
+COLUMNAS_MEDIOS_GLOBAL_NEWS = {
+    "autor - conductor",
+    "medio",
+    "fecha",
+    "resumen - aclaracion",
+    "resumen - aclaración",
+    "título",
+    "titulo",
+}
+
+COLUMNAS_MEDIOS_STAKEHOLDERS = {
+    "autor",
+    "fuente",
+    "fecha",
+    "resumen",
+    "titular",
+    "titulo",
+}
+
+COLUMNAS_MEDIOS_DETERM = {
+    "author",
+    "from",
+    "title",
+    "mention_snippet",
+    "date",
+}
+
 COLUMNAS_REDES_TWK = {
     "content",
     "published",
@@ -63,12 +90,18 @@ PROVEEDORES_NOMBRES = {
     "medios": "medios_twk",
     "redes": "redes_twk",
     "determ": "determ",
+    "global_news": "global_news",
+    "stakeholders": "stakeholders",
+    "determ_medios": "determ_medios",
 }
 
 PROVEEDORES_ENDPOINTS = {
     "medios": "medios-alertas-ingestion",
     "redes": "redes-alertas-ingestion",
     "determ": "redes-alertas-ingestion",
+    "global_news": "medios-alertas-ingestion",
+    "stakeholders": "medios-alertas-ingestion",
+    "determ_medios": "medios-alertas-ingestion",
 }
 
 DOMINIOS_REDES_SOCIALES = {
@@ -80,7 +113,13 @@ DOMINIOS_REDES_SOCIALES = {
 }
 
 CAMPOS_PRINCIPALES = {
-    "medios": COLUMNAS_MEDIOS_TWK | {"url", "link"},
+    "medios": (
+        COLUMNAS_MEDIOS_TWK
+        | COLUMNAS_MEDIOS_GLOBAL_NEWS
+        | COLUMNAS_MEDIOS_STAKEHOLDERS
+        | COLUMNAS_MEDIOS_DETERM
+        | {"url", "link"}
+    ),
     "redes": COLUMNAS_REDES_TWK | {"url", "link", "red_social"},
     "determ": COLUMNAS_DETERM | {"url", "social_network"},
 }
@@ -472,7 +511,35 @@ class IngestionAPIView(APIView):
             return "redes"
         if header_set >= COLUMNAS_DETERM:
             return "determ"
+        if self._headers_corresponden_a_global_news(header_set):
+            return "global_news"
+        if self._headers_corresponden_a_stakeholders(header_set):
+            return "stakeholders"
+        if self._headers_corresponden_a_determ_medios(header_set):
+            return "determ_medios"
         return ""
+
+    def _headers_corresponden_a_global_news(self, header_set: set) -> bool:
+        requeridos = {"autor - conductor", "medio", "fecha"}
+        if not requeridos.issubset(header_set):
+            return False
+        if not {"resumen - aclaracion", "resumen - aclaración", "resumen"} & header_set:
+            return False
+        if not {"título", "titulo", "titular"} & header_set:
+            return False
+        return True
+
+    def _headers_corresponden_a_stakeholders(self, header_set: set) -> bool:
+        requeridos = {"autor", "fuente", "fecha", "resumen"}
+        if not requeridos.issubset(header_set):
+            return False
+        if not {"titular", "titulo", "título"} & header_set:
+            return False
+        return True
+
+    def _headers_corresponden_a_determ_medios(self, header_set: set) -> bool:
+        requeridos = {"author", "from", "title", "mention_snippet", "date"}
+        return requeridos.issubset(header_set)
 
     def _obtener_nombre_proveedor(self, provider: str) -> str:
         return PROVEEDORES_NOMBRES.get(provider, provider)
@@ -499,7 +566,10 @@ class IngestionAPIView(APIView):
                 else self._mapear_medios_twk
             )
             campos_principales = CAMPOS_PRINCIPALES.get(proveedor_inferido, set())
-            nombre_proveedor = self._obtener_nombre_proveedor(proveedor_inferido)
+            proveedor_respuesta = (
+                provider if provider in PROVEEDORES_NOMBRES else proveedor_inferido
+            )
+            nombre_proveedor = self._obtener_nombre_proveedor(proveedor_respuesta)
             registro = map_function(row)
             registro["proveedor"] = nombre_proveedor
             registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
@@ -594,15 +664,54 @@ class IngestionAPIView(APIView):
         }
 
     def _mapear_medios_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
-        fecha = parsear_datetime(row.get("published"))
+        fecha_raw = self._obtener_primera_coincidencia(
+            row,
+            ["published", "fecha", "date"],
+        )
+        fecha = parsear_datetime(fecha_raw)
+        titulo = limpiar_texto(
+            self._obtener_primera_coincidencia(
+                row,
+                ["title", "título", "titulo", "titular"],
+            )
+        )
+        contenido = limpiar_texto(
+            self._obtener_primera_coincidencia(
+                row,
+                [
+                    "content",
+                    "resumen",
+                    "resumen - aclaracion",
+                    "resumen - aclaración",
+                    "mention_snippet",
+                ],
+            )
+        )
+        autor = limpiar_texto(
+            self._obtener_primera_coincidencia(
+                row,
+                [
+                    "extra_author_attributes.name",
+                    "autor - conductor",
+                    "autor",
+                    "author",
+                ],
+            )
+        )
+        reach = parsear_entero(
+            self._obtener_primera_coincidencia(row, ["reach"])
+        )
+        url = normalizar_url(
+            self._obtener_primera_coincidencia(row, ["url", "link"])
+        )
         return {
             "tipo": "articulo",
-            "titulo": limpiar_texto(row.get("title")),
-            "contenido": limpiar_texto(row.get("content")),
+            "titulo": titulo,
+            "contenido": contenido,
             "fecha": fecha,
-            "autor": limpiar_texto(row.get("extra_author_attributes.name")),
-            "reach": parsear_entero(row.get("reach")),
-            "url": normalizar_url(row.get("url") or row.get("link")),
+            "autor": autor,
+            "reach": reach,
+            "url": url,
         }
 
     def _mapear_redes_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -640,6 +749,18 @@ class IngestionAPIView(APIView):
             "url": normalizar_url(row.get("url")),
             "red_social": red_social,
         }
+
+    def _obtener_primera_coincidencia(
+        self, row: Dict[str, Any], claves: Iterable[str]
+    ) -> Optional[Any]:
+        for clave in claves:
+            if clave not in row:
+                continue
+            valor = row.get(clave)
+            if valor in (None, ""):
+                continue
+            return valor
+        return None
 
     # ------------------------------------------------------------------
     # Persistencia y serialización
