@@ -77,6 +77,135 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["proyecto_nombre"], "Proyecto Test")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    def test_detects_global_news_provider(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "Título,Resumen - Aclaracion,Fecha,Autor - Conductor,Medio\n"
+            "Noticia,Contenido GN,2024-03-01,Autor GN,Canal GN\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "global_news.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["proveedor"], "global_news")
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertEqual(alerta["autor"], "Autor GN")
+        self.assertEqual(alerta["titulo"], "Noticia")
+        self.assertEqual(alerta["contenido"], "Contenido GN")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_detects_stakeholders_provider(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "Titular,Resumen,Fecha,Autor,Fuente\n"
+            "Stakeholder News,Resumen SH,2024-04-15,Autor SH,FUENTE\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "stakeholders.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["proveedor"], "stakeholders")
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertEqual(alerta["autor"], "Autor SH")
+        self.assertEqual(alerta["titulo"], "Stakeholder News")
+        self.assertEqual(alerta["contenido"], "Resumen SH")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_detects_determ_medios_provider(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "TITLE,MENTION_SNIPPET,DATE,AUTHOR,FROM\n"
+            "Determinacion,Resumen DM,2024-05-20,Autor DM,Fuente DM\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "determ_medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["proveedor"], "determ_medios")
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertEqual(alerta["autor"], "Autor DM")
+        self.assertEqual(alerta["titulo"], "Determinacion")
+        self.assertEqual(alerta["contenido"], "Resumen DM")
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
