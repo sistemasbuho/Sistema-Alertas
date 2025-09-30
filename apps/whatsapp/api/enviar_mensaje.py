@@ -55,7 +55,10 @@ def _aplicar_estilos(
 
     if etiqueta is not None:
         etiqueta_str = str(etiqueta)
-        etiqueta_formateada = etiqueta_str
+        if etiqueta_str.strip():
+            etiqueta_formateada = etiqueta_str
+        else:
+            etiqueta_str = None
 
     if estilo:
         if estilo.get("negrita"):
