@@ -83,6 +83,7 @@ def _aplicar_estilos(
     return valor_formateado, salto_linea
 
 
+
 def _obtener_fecha_legible(alerta: dict, *campos: str) -> str:
     """Devuelve la primera fecha legible disponible en los campos indicados."""
 
