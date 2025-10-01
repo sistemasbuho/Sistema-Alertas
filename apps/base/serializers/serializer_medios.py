@@ -6,12 +6,14 @@ from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
 class MediosSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
     estado_revisado = serializers.SerializerMethodField()
+    estado_enviado = serializers.SerializerMethodField()
+
     proyecto_keywords = serializers.SerializerMethodField()
 
     class Meta:
         model = Articulo
         fields = "__all__" 
-        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords']
+        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords','estado_enviado']
 
 
     def get_proyecto_nombre(self, obj):
