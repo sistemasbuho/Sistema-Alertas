@@ -486,9 +486,16 @@ class IngestionAPIView(APIView):
         workbook = load_workbook(uploaded_file, data_only=True)
         sheet = workbook.active
         rows_iter = sheet.iter_rows(values_only=False)
-        try:
-            headers_row = next(rows_iter)
-        except StopIteration:
+        headers_row = None
+        for potential_header_row in rows_iter:
+            if any(
+                self._valor_contiene_datos(cell.value) if cell is not None else False
+                for cell in potential_header_row
+            ):
+                headers_row = potential_header_row
+                break
+
+        if headers_row is None:
             return [], []
 
         headers = [self._normalizar_encabezado(cell.value) for cell in headers_row]
