@@ -30,10 +30,10 @@ class MediosSerializer(serializers.ModelSerializer):
         if not detalles:
             return None  
 
-        if all(getattr(d, "revisado", False) for d in detalles.all()):
+        if all(getattr(d, "estado_revisado", False) for d in detalles.all()):
             return "Revisado"
 
-        if any(not getattr(d, "revisado", False) for d in detalles.all()):
+        if any(not getattr(d, "estado_revisado", False) for d in detalles.all()):
             return "Pendiente"
 
         return None
@@ -44,10 +44,10 @@ class MediosSerializer(serializers.ModelSerializer):
         if not detalles:
             return None  
 
-        if all(getattr(d, "enviado", False) for d in detalles.all()):
+        if all(getattr(d, "estado_enviado", False) for d in detalles.all()):
             return "Enviado"
 
-        if any(not getattr(d, "enviado", False) for d in detalles.all()):
+        if any(not getattr(d, "estado_enviado", False) for d in detalles.all()):
             return "Pendiente"
 
         return None
