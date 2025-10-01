@@ -532,7 +532,7 @@ class IngestionAPIView(APIView):
 
         columnas_alternativas = [
             "link (streaming - imagen)",
-            "link",
+            "Link",
         ]
 
         for columna in columnas_alternativas:
