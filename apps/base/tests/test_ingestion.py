@@ -11,6 +11,7 @@ from rest_framework.test import APIRequestFactory
 
 from apps.base.api.ingestion import IngestionAPIView
 from apps.base.api.utils import formatear_fecha_respuesta
+from apps.base.models import Articulo
 
 
 class IngestionAPITests(SimpleTestCase):
@@ -118,6 +119,23 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["autor"], "Autor GN")
         self.assertEqual(alerta["titulo"], "Noticia")
         self.assertEqual(alerta["contenido"], "Contenido GN")
+
+    @patch.object(Articulo.objects, "filter")
+    def test_es_url_duplicada_por_proyecto_normaliza_variantes(self, mock_filter):
+        view = IngestionAPIView()
+        proyecto = SimpleNamespace(id=self.proyecto_id)
+
+        mock_queryset = mock_filter.return_value
+        mock_queryset.values_list.return_value = ["https://example.com/noticia"]
+
+        es_duplicado = view._es_url_duplicada_por_proyecto(
+            Articulo,
+            proyecto,
+            "http://www.example.com/noticia/",
+        )
+
+        self.assertTrue(es_duplicado)
+        mock_filter.assert_called_once_with(proyecto=proyecto)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_stakeholders_provider(self, mock_proyecto):
