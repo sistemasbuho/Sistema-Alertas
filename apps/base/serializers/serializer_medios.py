@@ -37,6 +37,20 @@ class MediosSerializer(serializers.ModelSerializer):
             return "Pendiente"
 
         return None
+    
+    def get_estado_enviado(self, obj):
+        detalles = getattr(obj, "detalles_envio", None)
+
+        if not detalles:
+            return None  
+
+        if all(getattr(d, "enviado", False) for d in detalles.all()):
+            return "Enviado"
+
+        if any(not getattr(d, "enviado", False) for d in detalles.all()):
+            return "Pendiente"
+
+        return None
 
     def validate(self, data):
         """
