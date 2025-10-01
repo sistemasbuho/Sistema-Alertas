@@ -851,7 +851,7 @@ class IngestionAPIView(APIView):
     def _crear_articulo(self, registro: Dict[str, Any], proyecto: Proyecto, sistema_user) -> Articulo:
         with transaction.atomic():
             url = registro.get("url") or ""
-            if url and Articulo.objects.filter(url=url, proyecto=proyecto).exists():
+            if self._es_url_duplicada_por_proyecto(Articulo, proyecto, url):
                 raise ValueError("La URL ya existe para este proyecto")
 
             articulo = Articulo.objects.create(
@@ -876,7 +876,7 @@ class IngestionAPIView(APIView):
     def _crear_red_social(self, registro: Dict[str, Any], proyecto: Proyecto) -> Redes:
         with transaction.atomic():
             url = registro.get("url") or ""
-            if url and Redes.objects.filter(url=url, proyecto=proyecto).exists():
+            if self._es_url_duplicada_por_proyecto(Redes, proyecto, url):
                 raise ValueError("La URL ya existe para este proyecto")
 
             red_social_obj = None
@@ -1017,6 +1017,41 @@ class IngestionAPIView(APIView):
             requests.post(url, json=payload, timeout=5)
         except requests.RequestException as exc:  # pylint: disable=broad-except
             logger.warning("No fue posible notificar la ruta externa %s: %s", url, exc)
+
+    # ------------------------------------------------------------------
+    # Validación de URLs por proyecto
+    # ------------------------------------------------------------------
+    def _es_url_duplicada_por_proyecto(self, model, proyecto: Proyecto, url: Optional[str]) -> bool:
+        if not url:
+            return False
+
+        clave_objetivo = self._construir_clave_url(url)
+        if not clave_objetivo:
+            return False
+
+        existentes = model.objects.filter(proyecto=proyecto).values_list("url", flat=True)
+        for url_existente in existentes:
+            if self._construir_clave_url(url_existente) == clave_objetivo:
+                return True
+        return False
+
+    def _construir_clave_url(self, url: Optional[str]) -> Optional[str]:
+        if not url:
+            return None
+
+        normalizada = normalizar_url(url)
+        if not normalizada:
+            return None
+
+        parsed = urlparse(normalizada)
+        netloc = parsed.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        path = (parsed.path or "").rstrip("/")
+        params = parsed.params or ""
+        query = parsed.query or ""
+        fragment = parsed.fragment or ""
+        return "|".join([netloc, path, params, query, fragment]) or None
 
     def forward_payload(self, endpoint_name: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None):
         headers = headers.copy() if headers else {}
