@@ -309,6 +309,38 @@ class IngestionAPITests(SimpleTestCase):
         self.assertTrue(rows)
         self.assertNotIn("columna_vacia", rows[0])
 
+    def test_normalizar_columnas_url_usa_link_como_url(self):
+        view = IngestionAPIView()
+        headers = ["titulo", "link"]
+        rows = [{"titulo": "Noticia", "link": "http://example.com/link"}]
+
+        nuevos_headers, nuevos_rows = view._normalizar_columnas_url(headers, rows)
+
+        self.assertIn("url", nuevos_headers)
+        self.assertEqual(nuevos_rows[0]["url"], "http://example.com/link")
+
+    def test_parse_xlsx_extrae_hipervinculo_en_columna_link_streaming(self):
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Link (Streaming - Imagen)", "Titulo"])
+        cell = sheet.cell(row=2, column=1, value="Ver")
+        cell.hyperlink = "http://example.com/stream"
+        sheet.cell(row=2, column=2, value="Titulo Global")
+
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+
+        view = IngestionAPIView()
+        headers, rows = view._parse_xlsx(buffer)
+        headers, rows = view._normalizar_columnas_url(headers, rows)
+
+        self.assertIn("url", headers)
+        self.assertTrue(rows)
+        self.assertEqual(rows[0]["url"], "http://example.com/stream")
+
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
