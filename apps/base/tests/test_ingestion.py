@@ -181,6 +181,89 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["contenido"], "Resumen SH")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    def test_stakeholders_link_column_is_used_for_url(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "Titular,Resumen,Fecha,Autor,Fuente,Link\n"
+            "Stakeholder News,Resumen SH,2024-04-15,Autor SH,FUENTE,http://example.com/stakeholders-link\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "stakeholders_link.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertEqual(alerta["url"], "http://example.com/stakeholders-link")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_stakeholders_link_streaming_column_is_used_for_url(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "Titular,Resumen,Fecha,Autor,Fuente,Link (Streaming - Imagen)\n"
+            "Stakeholder News,Resumen SH,2024-04-15,Autor SH,FUENTE,http://example.com/stakeholders-streaming\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "stakeholders_link_streaming.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["proveedor"], "stakeholders")
+        listado = response.data["listado"]
+        self.assertEqual(len(listado), 1)
+        alerta = listado[0]
+        self.assertEqual(
+            alerta["url"], "http://example.com/stakeholders-streaming"
+        )
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_determ_medios_provider(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
