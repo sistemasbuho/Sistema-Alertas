@@ -532,23 +532,29 @@ class IngestionAPIView(APIView):
         if "url" in headers_normalizados:
             return headers, rows
 
-        columnas_alternativas = [
+        columnas_alternativas = []
+        for columna in [
             "link (streaming - imagen)",
+            "link",
             "Link",
-        ]
+        ]:
+            columna_normalizada = self._normalizar_encabezado(columna)
+            if columna_normalizada and columna_normalizada not in columnas_alternativas:
+                columnas_alternativas.append(columna_normalizada)
 
         for columna in columnas_alternativas:
             if columna not in headers_normalizados:
                 continue
             if "url" not in headers:
                 headers.append("url")
+                headers_normalizados.append("url")
             for row in rows:
-                valor_url = row.get("url")
-                if valor_url:
+                if row.get("url"):
                     continue
                 valor_alternativo = row.get(columna)
-                if valor_alternativo:
-                    row["url"] = valor_alternativo
+                if valor_alternativo is None:
+                    continue
+                row["url"] = valor_alternativo
             return headers, rows
 
         return headers, rows
@@ -588,19 +594,39 @@ class IngestionAPIView(APIView):
         self, headers: List[str], rows: List[Dict[str, Any]]
     ) -> Optional[Response]:
         headers_normalizados = {header for header in headers if header}
-        if "url" not in headers_normalizados:
+        columnas_posibles = [
+            "url",
+            "link",
+            "link (streaming - imagen)",
+        ]
+        columnas_presentes = [
+            columna for columna in columnas_posibles if columna in headers_normalizados
+        ]
+        if not columnas_presentes:
             return Response(
-                {"detail": "El archivo debe incluir una columna 'url'."},
+                {"detail": "El archivo debe incluir una columna 'url' o 'link'."},
                 status=400,
             )
 
         for row in rows:
-            url_valida = normalizar_url(row.get("url")) if isinstance(row, dict) else None
-            if url_valida:
+            if not isinstance(row, dict):
+                continue
+            for columna in columnas_presentes:
+                valor = row.get("url") if columna == "url" else row.get(columna)
+                url_valida = normalizar_url(valor)
+                if not url_valida:
+                    continue
+                if columna != "url":
+                    row["url"] = url_valida
+                    if "url" not in headers:
+                        headers.append("url")
+                        headers_normalizados.add("url")
                 return None
 
         return Response(
-            {"detail": "La columna 'url' debe contener al menos un valor válido."},
+            {
+                "detail": "La columna 'url' o 'link' debe contener al menos un valor válido.",
+            },
             status=400,
         )
 
