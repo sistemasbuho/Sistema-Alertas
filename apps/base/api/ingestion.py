@@ -198,6 +198,7 @@ class IngestionAPIView(APIView):
                 )
 
             headers, rows = self._parse_file(archivo, extension)
+            headers, rows = self._normalizar_columnas_url(headers, rows)
             if not headers:
                 return [], None, Response(
                     {"detail": "El archivo no contiene encabezados válidos."},
@@ -482,13 +483,13 @@ class IngestionAPIView(APIView):
         uploaded_file.seek(0)
         workbook = load_workbook(uploaded_file, data_only=True)
         sheet = workbook.active
-        rows_iter = sheet.iter_rows(values_only=True)
+        rows_iter = sheet.iter_rows(values_only=False)
         try:
             headers_row = next(rows_iter)
         except StopIteration:
             return [], []
 
-        headers = [self._normalizar_encabezado(value) for value in headers_row]
+        headers = [self._normalizar_encabezado(cell.value) for cell in headers_row]
         rows: List[Dict[str, Any]] = []
         header_indices = [
             (index, header)
@@ -500,7 +501,13 @@ class IngestionAPIView(APIView):
         for row in rows_iter:
             row_dict: Dict[str, Any] = {}
             for idx, header in header_indices:
-                value = row[idx] if idx < len(row) else None
+                cell = row[idx] if idx < len(row) else None
+                value = None
+                if cell is not None:
+                    value = cell.value
+                    hyperlink = getattr(cell, "hyperlink", None)
+                    if hyperlink:
+                        value = hyperlink.target or hyperlink.location or value
                 if self._valor_contiene_datos(value):
                     columnas_con_datos[header] = True
                     row_dict[header] = value
@@ -514,6 +521,34 @@ class IngestionAPIView(APIView):
             for row_dict in rows:
                 for columna in columnas_vacias:
                     row_dict.pop(columna, None)
+        return headers, rows
+
+    def _normalizar_columnas_url(
+        self, headers: List[str], rows: List[Dict[str, Any]]
+    ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        headers_normalizados = [header for header in headers if header]
+        if "url" in headers_normalizados:
+            return headers, rows
+
+        columnas_alternativas = [
+            "link (streaming - imagen)",
+            "link",
+        ]
+
+        for columna in columnas_alternativas:
+            if columna not in headers_normalizados:
+                continue
+            if "url" not in headers:
+                headers.append("url")
+            for row in rows:
+                valor_url = row.get("url")
+                if valor_url:
+                    continue
+                valor_alternativo = row.get(columna)
+                if valor_alternativo:
+                    row["url"] = valor_alternativo
+            return headers, rows
+
         return headers, rows
 
     def _normalizar_encabezado(self, header_value) -> str:
