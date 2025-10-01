@@ -50,6 +50,7 @@ COLUMNAS_MEDIOS_GLOBAL_NEWS = {
     "resumen - aclaración",
     "título",
     "titulo",
+    "audiencia",
 }
 
 COLUMNAS_MEDIOS_STAKEHOLDERS = {
@@ -59,6 +60,7 @@ COLUMNAS_MEDIOS_STAKEHOLDERS = {
     "resumen",
     "titular",
     "titulo",
+    "audiencia",
 }
 
 COLUMNAS_MEDIOS_DETERM = {
@@ -643,17 +645,15 @@ class IngestionAPIView(APIView):
         registros = []
         for row in rows:
             proveedor_inferido = self._inferir_proveedor(row)
-            map_function = (
-                self._mapear_redes_twk
-                if proveedor_inferido == "redes"
-                else self._mapear_medios_twk
-            )
             campos_principales = CAMPOS_PRINCIPALES.get(proveedor_inferido, set())
             proveedor_respuesta = (
                 provider if provider in PROVEEDORES_NOMBRES else proveedor_inferido
             )
             nombre_proveedor = self._obtener_nombre_proveedor(proveedor_respuesta)
-            registro = map_function(row)
+            if proveedor_inferido == "redes":
+                registro = self._mapear_redes_twk(row)
+            else:
+                registro = self._mapear_medios_twk(row, proveedor_respuesta)
             registro["proveedor"] = nombre_proveedor
             registro["datos_adicionales"] = self._extraer_datos_adicionales(row, campos_principales)
             registros.append(registro)
@@ -746,7 +746,9 @@ class IngestionAPIView(APIView):
             "alertas": alertas,
         }
 
-    def _mapear_medios_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
+    def _mapear_medios_twk(
+        self, row: Dict[str, Any], provider: Optional[str] = None
+    ) -> Dict[str, Any]:
         fecha_raw = self._obtener_primera_coincidencia(
             row,
             ["published", "fecha", "date"],
@@ -781,8 +783,13 @@ class IngestionAPIView(APIView):
                 ],
             )
         )
+        provider_normalized = (provider or "").strip().lower()
+        reach_claves = ["reach"]
+        if provider_normalized in {"global_news", "stakeholders"}:
+            reach_claves.insert(0, "audiencia")
+
         reach = parsear_entero(
-            self._obtener_primera_coincidencia(row, ["reach"])
+            self._obtener_primera_coincidencia(row, reach_claves)
         )
         url = normalizar_url(
             self._obtener_primera_coincidencia(row, ["url", "link"])
