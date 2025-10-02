@@ -543,6 +543,7 @@ class IngestionAPIView(APIView):
 
         columnas_alternativas = [
             "link (streaming - imagen)",
+            "link (streaming – imagen)",
             "link",
         ]
 
@@ -760,7 +761,7 @@ class IngestionAPIView(APIView):
     ) -> Dict[str, Any]:
         fecha_raw = self._obtener_primera_coincidencia(
             row,
-            ["published", "fecha", "date"],
+            ["fecha", "published", "date"],
         )
         fecha = parsear_datetime(fecha_raw)
         titulo = limpiar_texto(
@@ -801,7 +802,15 @@ class IngestionAPIView(APIView):
             self._obtener_primera_coincidencia(row, reach_claves)
         )
         url = normalizar_url(
-            self._obtener_primera_coincidencia(row, ["url", "link"])
+            self._obtener_primera_coincidencia(
+                row,
+                [
+                    "url",
+                    "link",
+                    "link (streaming - imagen)",
+                    "link (streaming – imagen)",
+                ],
+            )
         )
         return {
             "tipo": "articulo",

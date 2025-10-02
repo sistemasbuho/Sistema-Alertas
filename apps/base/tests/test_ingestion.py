@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -418,7 +418,7 @@ class IngestionAPITests(SimpleTestCase):
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.append(["Link (Streaming - Imagen)", "Titulo"])
+        sheet.append(["Link (Streaming – Imagen)", "Titulo"])
         cell = sheet.cell(row=2, column=1, value="Ver")
         cell.hyperlink = "http://example.com/stream"
         sheet.cell(row=2, column=2, value="Titulo Global")
@@ -434,6 +434,26 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIn("url", headers)
         self.assertTrue(rows)
         self.assertEqual(rows[0]["url"], "http://example.com/stream")
+
+    def test_mapear_medios_global_news_prioriza_fecha_y_link_streaming(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo GN",
+            "resumen - aclaracion": "Contenido GN",
+            "fecha": "2024-05-10",
+            "published": "2024-05-01",
+            "autor - conductor": "Autor GN",
+            "medio": "Canal GN",
+            "link (streaming – imagen)": "http://example.com/streaming",
+            "audiencia": "2500",
+        }
+
+        registro = view._mapear_medios_twk(row, "global_news")
+
+        self.assertEqual(registro["url"], "http://example.com/streaming")
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2024, 5, 10))
+        self.assertEqual(registro["reach"], 2500)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
