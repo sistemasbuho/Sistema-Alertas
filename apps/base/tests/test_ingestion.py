@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
+from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
@@ -273,6 +274,49 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["autor"], "Autor SH")
         self.assertEqual(alerta["titulo"], "Stakeholder News")
         self.assertEqual(alerta["contenido"], "Resumen SH")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_stakeholders_combina_fecha_y_hora(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        content = (
+            "Titular,Resumen,Fecha,Hora,Autor,Fuente,URL\n"
+            "Stakeholder News,Resumen SH,2024-04-15,08:30,Autor SH,FUENTE,http://example.com/stakeholders\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "stakeholders.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNotNone(self.ultimo_registro_articulo)
+        fecha_resultado = self.ultimo_registro_articulo.get("fecha")
+        self.assertIsNotNone(fecha_resultado)
+        self.assertTrue(timezone.is_aware(fecha_resultado))
+        self.assertEqual(fecha_resultado.date(), date(2024, 4, 15))
+        self.assertEqual(fecha_resultado.hour, 8)
+        self.assertEqual(fecha_resultado.minute, 30)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_determ_medios_provider(self, mock_proyecto):
