@@ -935,7 +935,7 @@ class IngestionAPIView(APIView):
 
             DetalleEnvio.objects.create(
                 estado_enviado=False,
-                estado_revisado=False,
+                estado_revisado=True,
                 medio=articulo,
                 proyecto=proyecto,
             )
@@ -997,7 +997,7 @@ class IngestionAPIView(APIView):
 
             DetalleEnvio.objects.create(
                 estado_enviado=False,
-                estado_revisado=False,
+                estado_revisado=True,
                 red_social=red,
                 proyecto=proyecto,
             )
