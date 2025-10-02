@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -498,6 +498,41 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(registro["fecha"])
         self.assertEqual(registro["fecha"].date(), date(2024, 5, 10))
         self.assertEqual(registro["reach"], 2500)
+
+    def test_mapear_medios_global_news_soporta_formato_fecha_latam(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo GN",
+            "contenido": "Contenido GN",
+            "fecha": "10/05/2024",
+            "autor": "Autor GN",
+            "audiencia": "1500",
+            "url": "http://example.com/global-news",
+        }
+
+        registro = view._mapear_medios_twk(row, "global_news")
+
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2024, 5, 10))
+        self.assertEqual(registro["reach"], 1500)
+
+    def test_mapear_medios_stakeholders_combina_fecha_y_hora_latam(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo Stakeholder",
+            "resumen": "Contenido",
+            "fecha": "15/05/2024",
+            "hora": "08:30",
+            "autor": "Autor SH",
+            "audiencia": "200",
+            "url": "http://example.com/stakeholder",
+        }
+
+        registro = view._mapear_medios_twk(row, "stakeholders")
+
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2024, 5, 15))
+        self.assertEqual(registro["fecha"].time(), time(8, 30))
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):

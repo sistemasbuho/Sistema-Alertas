@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
+from typing import Iterable as _Iterable
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 from urllib.parse import urlparse, urlunparse
 
@@ -88,6 +89,27 @@ def asegurar_timezone(value: Optional[datetime]) -> Optional[datetime]:
     return value
 
 
+def _parsear_datetime_con_formatos(
+    texto: str, formatos: _Iterable[str]
+) -> Optional[datetime]:
+    for formato in formatos:
+        try:
+            parsed = datetime.strptime(texto, formato)
+        except ValueError:
+            continue
+        return asegurar_timezone(parsed)
+    return None
+
+
+def _parsear_date_con_formatos(texto: str, formatos: _Iterable[str]) -> Optional[date]:
+    for formato in formatos:
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+    return None
+
+
 def parsear_datetime(value: Any) -> Optional[datetime]:
     if value in (None, ""):
         return None
@@ -116,6 +138,18 @@ def parsear_datetime(value: Any) -> Optional[datetime]:
     parsed_time = parse_time(texto)
     if parsed_time:
         return asegurar_timezone(datetime.combine(timezone.now().date(), parsed_time))
+
+    formatos_datetime = (
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+    )
+    parsed_custom = _parsear_datetime_con_formatos(texto, formatos_datetime)
+    if parsed_custom:
+        return parsed_custom
     return None
 
 
@@ -129,7 +163,11 @@ def parsear_fecha(value: Any) -> Optional[date]:
     texto = str(value).strip()
     if not texto:
         return None
-    return parse_date(texto)
+    parsed = parse_date(texto)
+    if parsed:
+        return parsed
+    formatos_fecha = ("%d/%m/%Y", "%d-%m-%Y")
+    return _parsear_date_con_formatos(texto, formatos_fecha)
 
 
 def parsear_hora(value: Any) -> Optional[time]:
