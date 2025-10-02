@@ -153,7 +153,7 @@ class IngestionAPIView(APIView):
                 proyecto,
             )
             self._notificar_ruta_externa(respuesta)
-            return Response(respuesta, status=200)
+            return Response(respuesta, status=405)
 
         resultado = self._persistir_registros(registros_filtrados, proyecto)
         respuesta = self._construir_respuesta_exito(

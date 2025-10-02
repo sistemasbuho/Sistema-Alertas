@@ -493,7 +493,7 @@ class IngestionAPITests(SimpleTestCase):
         ):
             response = IngestionAPIView.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 405)
         self.assertEqual(response.data["proyecto_nombre"], "Proyecto Test")
 
     @patch("apps.base.api.ingestion.Proyecto")
@@ -849,7 +849,7 @@ class IngestionAPITests(SimpleTestCase):
         ) as mock_forward:
             response = IngestionAPIView.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 405)
         mock_forward.assert_not_called()
         self.assertIn("mensaje", response.data)
         self.assertIn("criterios", response.data["mensaje"])
