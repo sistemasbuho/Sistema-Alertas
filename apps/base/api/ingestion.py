@@ -763,7 +763,15 @@ class IngestionAPIView(APIView):
             row,
             ["fecha", "published", "date"],
         )
-        fecha = parsear_datetime(fecha_raw)
+        provider_normalized = (provider or "").strip().lower()
+        hora_raw = None
+        if provider_normalized == "stakeholders":
+            hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
+
+        if hora_raw is not None:
+            fecha = combinar_fecha_hora(fecha_raw, hora_raw)
+        else:
+            fecha = parsear_datetime(fecha_raw)
         titulo = limpiar_texto(
             self._obtener_primera_coincidencia(
                 row,
@@ -793,7 +801,6 @@ class IngestionAPIView(APIView):
                 ],
             )
         )
-        provider_normalized = (provider or "").strip().lower()
         reach_claves = ["reach"]
         if provider_normalized in {"global_news", "stakeholders"}:
             reach_claves.insert(0, "audiencia")
