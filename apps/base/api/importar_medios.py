@@ -70,7 +70,7 @@ class ImportarArticuloAPIView(APIView):
             # Crear detalle de envío
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
-                estado_revisado=False,
+                estado_revisado=True,
                 medio=articulo,
                 proyecto_id=proyecto.id
             )
