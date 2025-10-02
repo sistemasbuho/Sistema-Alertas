@@ -276,7 +276,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(alerta["contenido"], "Resumen SH")
 
     @patch("apps.base.api.ingestion.Proyecto")
-    def test_stakeholders_combina_fecha_y_hora(self, mock_proyecto):
+    def test_stakeholders_no_combina_fecha_y_hora(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
             "Titular,Resumen,Fecha,Hora,Autor,Fuente,URL\n"
@@ -315,8 +315,8 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(fecha_resultado)
         self.assertTrue(timezone.is_aware(fecha_resultado))
         self.assertEqual(fecha_resultado.date(), date(2024, 4, 15))
-        self.assertEqual(fecha_resultado.hour, 8)
-        self.assertEqual(fecha_resultado.minute, 30)
+        self.assertEqual(fecha_resultado.hour, 0)
+        self.assertEqual(fecha_resultado.minute, 0)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_determ_medios_provider(self, mock_proyecto):
@@ -516,7 +516,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
         self.assertEqual(registro["reach"], 1500)
 
-    def test_mapear_medios_stakeholders_combina_fecha_iso_y_hora(self):
+    def test_mapear_medios_stakeholders_no_combina_fecha_iso_y_hora(self):
         view = IngestionAPIView()
         row = {
             "titulo": "Titulo Stakeholder",
@@ -532,7 +532,7 @@ class IngestionAPITests(SimpleTestCase):
 
         self.assertIsNotNone(registro["fecha"])
         self.assertEqual(registro["fecha"].date(), date(2025, 9, 29))
-        self.assertEqual(registro["fecha"].time(), time(8, 30))
+        self.assertEqual(registro["fecha"].time(), time.min)
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
