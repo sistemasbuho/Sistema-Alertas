@@ -17,6 +17,7 @@ from django.urls import NoReverseMatch, reverse
 
 from apps.base.models import Articulo, DetalleEnvio, Redes, RedesSociales
 from apps.proyectos.models import Proyecto
+from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
 
 from .contenido_redes import ajustar_contenido_red_social
 from .utils import (
@@ -162,6 +163,7 @@ class IngestionAPIView(APIView):
             proyecto,
         )
 
+        self._procesar_envio_automatico(proyecto, respuesta)
         self._notificar_ruta_externa(respuesta)
 
         return Response(
@@ -868,6 +870,7 @@ class IngestionAPIView(APIView):
         duplicados = 0
         descartados = 0
         sistema_user = self._obtener_usuario_sistema()
+        self._usuario_sistema_cache = sistema_user
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
         for indice, registro in enumerate(registros, start=1):
@@ -983,6 +986,61 @@ class IngestionAPIView(APIView):
                 proyecto=proyecto,
             )
         return red
+
+    def _procesar_envio_automatico(
+        self,
+        proyecto: Proyecto,
+        respuesta: Dict[str, Any],
+    ) -> None:
+        if not proyecto:
+            return
+
+        tipo_envio = getattr(proyecto, "tipo_envio", "")
+        if not isinstance(tipo_envio, str) or tipo_envio.strip().lower() != "automatico":
+            return
+
+        listado = respuesta.get("listado") or []
+        if not listado:
+            return
+
+        tipo_alerta = self._obtener_tipo_alerta_proyecto(proyecto)
+        if not tipo_alerta:
+            tipo_alerta = next(
+                (alerta.get("tipo") for alerta in listado if alerta.get("tipo")),
+                None,
+            )
+
+        if not tipo_alerta:
+            return
+
+        alertas = [self._preparar_alerta_para_envio(alerta) for alerta in listado]
+
+        usuario = getattr(self, "_usuario_sistema_cache", None)
+        usuario_id = getattr(usuario, "id", None) or getattr(usuario, "pk", None)
+
+        kwargs: Dict[str, Any] = {}
+        if usuario_id:
+            kwargs["usuario_id"] = usuario_id
+
+        try:
+            enviar_alertas_automatico(
+                proyecto.id,
+                tipo_alerta,
+                alertas,
+                **kwargs,
+            )
+        except Exception:  # pylint: disable=broad-except
+            logger.exception(
+                "Error enviando alertas automáticas para el proyecto %s",
+                proyecto.id,
+            )
+
+    def _preparar_alerta_para_envio(self, alerta: Dict[str, Any]) -> Dict[str, Any]:
+        alerta_envio = alerta.copy()
+        datos_adicionales = alerta_envio.get("datos_adicionales")
+        if isinstance(datos_adicionales, dict):
+            alerta_envio["datos_adicionales"] = datos_adicionales.copy()
+        return alerta_envio
 
     def _serializar_articulo(
         self,

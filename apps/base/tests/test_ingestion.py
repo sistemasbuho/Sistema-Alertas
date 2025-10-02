@@ -78,6 +78,100 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["proyecto_nombre"], "Proyecto Test")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    @patch("apps.base.api.ingestion.enviar_alertas_automatico")
+    def test_envio_automatico_envia_alertas(self, mock_enviar, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        proyecto = mock_proyecto.objects.filter.return_value.first.return_value
+        proyecto.tipo_envio = "automatico"
+        content = (
+            "title,content,published,extra_author_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        mock_enviar.return_value = {"success": True}
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ), patch.object(
+            IngestionAPIView,
+            "_notificar_ruta_externa",
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        mock_enviar.assert_called_once()
+        args, kwargs = mock_enviar.call_args
+        self.assertEqual(args[0], proyecto.id)
+        self.assertEqual(args[1], "medios")
+        self.assertEqual(len(args[2]), 1)
+        self.assertEqual(args[2][0]["id"], "articulo-id")
+        self.assertEqual(kwargs.get("usuario_id"), 2)
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    @patch("apps.base.api.ingestion.enviar_alertas_automatico")
+    def test_envio_manual_no_envia_alertas(self, mock_enviar, mock_proyecto):
+        self._mock_proyecto(mock_proyecto)
+        proyecto = mock_proyecto.objects.filter.return_value.first.return_value
+        proyecto.tipo_envio = "manual"
+        content = (
+            "title,content,published,extra_author_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "medios.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ), patch.object(
+            IngestionAPIView,
+            "_notificar_ruta_externa",
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        mock_enviar.assert_not_called()
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_detects_global_news_provider(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
