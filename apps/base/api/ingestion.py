@@ -760,14 +760,19 @@ class IngestionAPIView(APIView):
     def _mapear_medios_twk(
         self, row: Dict[str, Any], provider: Optional[str] = None
     ) -> Dict[str, Any]:
-        fecha_raw = self._obtener_primera_coincidencia(
-            row,
-            ["fecha", "published", "date"],
-        )
         provider_normalized = (provider or "").strip().lower()
-        if provider_normalized == "stakeholders":
-            fecha = parsear_datetime(fecha_raw)
-        else:
+        fecha = None
+        if provider_normalized == "medios":
+            fecha = parsear_datetime(row.get("published"))
+        elif provider_normalized == "global_news":
+            fecha = parsear_datetime(
+                self._obtener_primera_coincidencia(row, ["fecha"])
+            )
+        if fecha is None:
+            fecha_raw = self._obtener_primera_coincidencia(
+                row,
+                ["fecha", "published", "date"],
+            )
             hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
             if hora_raw is not None:
@@ -780,10 +785,24 @@ class IngestionAPIView(APIView):
                 ["title", "título", "titulo", "titular"],
             )
         )
-        contenido = limpiar_texto(
-            self._obtener_primera_coincidencia(
+        contenido_valor: Optional[Any]
+        if provider_normalized == "medios":
+            contenido_valor = row.get("content_snippet")
+        elif provider_normalized == "global_news":
+            contenido_valor = self._obtener_primera_coincidencia(
+                row,
+                ["resumen - aclaracion", "resumen - aclaración"],
+            )
+        elif provider_normalized == "stakeholders":
+            contenido_valor = row.get("resumen")
+        else:
+            contenido_valor = None
+
+        if not self._valor_contiene_datos(contenido_valor):
+            contenido_valor = self._obtener_primera_coincidencia(
                 row,
                 [
+                    "content_snippet",
                     "content",
                     "resumen",
                     "resumen - aclaracion",
@@ -791,7 +810,8 @@ class IngestionAPIView(APIView):
                     "mention_snippet",
                 ],
             )
-        )
+
+        contenido = limpiar_texto(contenido_valor)
         autor = limpiar_texto(
             self._obtener_primera_coincidencia(
                 row,
