@@ -38,8 +38,7 @@ class ImportarArticuloAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
-        User = get_user_model()
-        sistema_user = User.objects.get(id=2) 
+        usuario_creador = self._obtener_usuario_creador(request)
         print('lega aqui')
 
         for data in articulos_data:
@@ -55,7 +54,7 @@ class ImportarArticuloAPIView(APIView):
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
 
-            # Crear artículo asignando created_by al usuario “sistema”
+            # Crear artículo asignando created_by al usuario correspondiente
             articulo = Articulo.objects.create(
                 titulo=titulo,
                 contenido=contenido,
@@ -64,7 +63,8 @@ class ImportarArticuloAPIView(APIView):
                 autor=autor,
                 reach=reach,
                 proyecto=proyecto,
-                created_by=sistema_user
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
 
             # Crear detalle de envío
@@ -72,7 +72,9 @@ class ImportarArticuloAPIView(APIView):
                 estado_enviado=False,
                 estado_revisado=True,
                 medio=articulo,
-                proyecto_id=proyecto.id
+                proyecto_id=proyecto.id,
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
 
             creados.append({
@@ -104,7 +106,7 @@ class ImportarArticuloAPIView(APIView):
                 proyecto_id=proyecto.id,
                 tipo_alerta="medios",
                 alertas=alertas,
-                usuario_id=sistema_user.id
+                usuario_id=getattr(usuario_creador, "id", None)
             )
         print('creados--------------',creados)
 
@@ -135,6 +137,35 @@ class ImportarArticuloAPIView(APIView):
             articulos = [articulos]
 
         return list(articulos)
+
+    def _obtener_usuario_creador(self, request):
+        UserModel = get_user_model()
+
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            return user
+
+        posibles_fuentes = []
+        if hasattr(request, "data"):
+            posibles_fuentes.append(request.data)
+        if hasattr(request, "query_params"):
+            posibles_fuentes.append(request.query_params)
+
+        for fuente in posibles_fuentes:
+            if not hasattr(fuente, "get"):
+                continue
+            for clave in ("usuario_id", "usuario", "user_id", "created_by"):
+                valor = fuente.get(clave)
+                if isinstance(valor, list):
+                    valor = valor[0]
+                if not valor:
+                    continue
+                try:
+                    return UserModel.objects.get(id=valor)
+                except (UserModel.DoesNotExist, ValueError, TypeError):
+                    continue
+
+        return UserModel.objects.get(id=2)
 
     def _map_alerta_to_articulo(self, alerta: Dict[str, Any]) -> Dict[str, Any]:
         return {

@@ -40,8 +40,7 @@ class ImportarRedesAPIView(APIView):
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
         
-        User = get_user_model()
-        sistema_user = User.objects.get(id=2) 
+        usuario_creador = self._obtener_usuario_creador(request)
 
         for data in redes_data:
             contenido = data.get("contenido")
@@ -72,14 +71,18 @@ class ImportarRedesAPIView(APIView):
                 reach=reach,
                 engagement=engagement,
                 proyecto=proyecto,
-                red_social=red_social_obj 
+                red_social=red_social_obj,
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
 
             detalle_envio = DetalleEnvio.objects.create(
                 estado_enviado=False,
                 estado_revisado=True,
                 red_social=red,
-                proyecto_id=proyecto.id
+                proyecto_id=proyecto.id,
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
 
             creados.append({
@@ -112,7 +115,7 @@ class ImportarRedesAPIView(APIView):
                 proyecto_id=proyecto.id,
                 tipo_alerta="redes",
                 alertas=alertas,
-                usuario_id=sistema_user.id
+                usuario_id=getattr(usuario_creador, "id", None)
             )
 
         
@@ -180,6 +183,35 @@ class ImportarRedesAPIView(APIView):
             redes = [redes]
 
         return list(redes)
+
+    def _obtener_usuario_creador(self, request):
+        UserModel = get_user_model()
+
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            return user
+
+        posibles_fuentes = []
+        if hasattr(request, "data"):
+            posibles_fuentes.append(request.data)
+        if hasattr(request, "query_params"):
+            posibles_fuentes.append(request.query_params)
+
+        for fuente in posibles_fuentes:
+            if not hasattr(fuente, "get"):
+                continue
+            for clave in ("usuario_id", "usuario", "user_id", "created_by"):
+                valor = fuente.get(clave)
+                if isinstance(valor, list):
+                    valor = valor[0]
+                if not valor:
+                    continue
+                try:
+                    return UserModel.objects.get(id=valor)
+                except (UserModel.DoesNotExist, ValueError, TypeError):
+                    continue
+
+        return UserModel.objects.get(id=2)
 
     def _map_alerta_to_red(self, alerta: Dict[str, Any]) -> Dict[str, Any]:
         reach = alerta.get("reach")
