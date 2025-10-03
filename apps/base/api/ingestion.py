@@ -43,6 +43,10 @@ COLUMNAS_MEDIOS_TWK = {
     "reach",
 }
 
+COLUMNAS_MEDIOS_TWK_VARIANTE_FUENTE = (
+    COLUMNAS_MEDIOS_TWK - {"extra_author_attributes.name"}
+) | {"extra_source_attributes.name"}
+
 COLUMNAS_MEDIOS_GLOBAL_NEWS = {
     "autor - conductor",
     "medio",
@@ -79,6 +83,10 @@ COLUMNAS_REDES_TWK = {
     "reach",
     "engagement",
 }
+
+COLUMNAS_REDES_TWK_VARIANTE_AUTOR = (
+    COLUMNAS_REDES_TWK - {"extra_author_attributes.name"}
+) | {"extra_author_attributes.short_name"}
 
 COLUMNAS_DETERM = {
     "mention_snippet",
@@ -121,9 +129,13 @@ CAMPOS_PRINCIPALES = {
         | COLUMNAS_MEDIOS_GLOBAL_NEWS
         | COLUMNAS_MEDIOS_STAKEHOLDERS
         | COLUMNAS_MEDIOS_DETERM
-        | {"url", "link"}
+        | {"url", "link", "extra_source_attributes.name"}
     ),
-    "redes": COLUMNAS_REDES_TWK | {"url", "link", "red_social"},
+    "redes": (
+        COLUMNAS_REDES_TWK
+        | COLUMNAS_REDES_TWK_VARIANTE_AUTOR
+        | {"url", "link", "red_social"}
+    ),
     "determ": COLUMNAS_DETERM | {"url", "social_network"},
 }
 
@@ -381,6 +393,8 @@ class IngestionAPIView(APIView):
                 "fecha": parsear_datetime(fecha_raw) if fecha_raw else None,
                 "autor": limpiar_texto(
                     self._obtener_valor_data(data, "autor")
+                    or self._obtener_valor_data(data, "extra_source_attributes.name")
+                    or self._obtener_valor_data(data, "extra_author_attributes.short_name")
                     or self._obtener_valor_data(data, "extra_author_attributes.name")
                 ),
                 "reach": parsear_entero(self._obtener_valor_data(data, "reach")),
@@ -415,7 +429,9 @@ class IngestionAPIView(APIView):
                     "published",
                     "fecha_publicacion",
                     "autor",
+                    "extra_source_attributes.name",
                     "extra_author_attributes.name",
+                    "extra_author_attributes.short_name",
                     "reach",
                     "engagement",
                     "red_social",
@@ -581,9 +597,9 @@ class IngestionAPIView(APIView):
     # ------------------------------------------------------------------
     def _detectar_proveedor(self, headers: List[str]) -> str:
         header_set = set(headers)
-        if header_set >= COLUMNAS_MEDIOS_TWK:
+        if header_set >= COLUMNAS_MEDIOS_TWK or header_set >= COLUMNAS_MEDIOS_TWK_VARIANTE_FUENTE:
             return "medios"
-        if header_set >= COLUMNAS_REDES_TWK:
+        if header_set >= COLUMNAS_REDES_TWK or header_set >= COLUMNAS_REDES_TWK_VARIANTE_AUTOR:
             return "redes"
         if header_set >= COLUMNAS_DETERM:
             return "determ"
@@ -773,7 +789,9 @@ class IngestionAPIView(APIView):
                 row,
                 ["fecha", "published", "date"],
             )
-            hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
+            hora_raw = None
+            if provider_normalized != "stakeholders":
+                hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
             if hora_raw is not None:
                 fecha = combinar_fecha_hora(fecha_raw, hora_raw)
@@ -812,17 +830,63 @@ class IngestionAPIView(APIView):
             )
 
         contenido = limpiar_texto(contenido_valor)
-        autor = limpiar_texto(
-            self._obtener_primera_coincidencia(
+        if provider_normalized == "medios":
+            autor_valor = self._obtener_primera_coincidencia(
                 row,
                 [
+                    "extra_source_attributes.name",
+                    "extra_author_attributes.short_name",
                     "extra_author_attributes.name",
                     "autor - conductor",
                     "autor",
                     "author",
                 ],
             )
-        )
+        elif provider_normalized == "global_news":
+            autor_valor = self._obtener_primera_coincidencia(
+                row,
+                [
+                    "Medio",
+                    "medio",
+                    "autor - conductor",
+                    "autor",
+                    "author",
+                ],
+            )
+        elif provider_normalized == "stakeholders":
+            autor_valor = self._obtener_primera_coincidencia(
+                row,
+                [
+                    "Fuente",
+                    "fuente",
+                    "autor",
+                    "autor - conductor",
+                    "author",
+                ],
+            )
+        elif provider_normalized == "determ_medios":
+            autor_valor = self._obtener_primera_coincidencia(
+                row,
+                [
+                    "FROM",
+                    "from",
+                    "author",
+                ],
+            )
+        else:
+            autor_valor = self._obtener_primera_coincidencia(
+                row,
+                [
+                    "extra_source_attributes.name",
+                    "extra_author_attributes.short_name",
+                    "extra_author_attributes.name",
+                    "autor - conductor",
+                    "autor",
+                    "author",
+                ],
+            )
+
+        autor = limpiar_texto(autor_valor)
         reach_claves = ["reach"]
         if provider_normalized in {"global_news", "stakeholders"}:
             reach_claves.insert(0, "audiencia")
@@ -862,7 +926,10 @@ class IngestionAPIView(APIView):
             "tipo": "red",
             "contenido": contenido,
             "fecha": fecha,
-            "autor": limpiar_texto(row.get("extra_author_attributes.name")),
+            "autor": limpiar_texto(
+                row.get("extra_author_attributes.short_name")
+                or row.get("extra_author_attributes.name")
+            ),
             "reach": parsear_entero(row.get("reach")),
             "engagement": parsear_entero(row.get("engagement")),
             "url": normalizar_url(row.get("url") or row.get("link")),
@@ -880,7 +947,12 @@ class IngestionAPIView(APIView):
             "tipo": "red",
             "contenido": contenido,
             "fecha": fecha,
-            "autor": limpiar_texto(row.get("author")),
+            "autor": limpiar_texto(
+                row.get("author")
+                or row.get("AUTHOR")
+                or row.get("FROM")
+                or row.get("from")
+            ),
             "reach": parsear_entero(row.get("reach")),
             "engagement": parsear_entero(row.get("engagement_rate")),
             "url": normalizar_url(row.get("url")),
