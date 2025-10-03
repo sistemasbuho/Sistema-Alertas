@@ -778,24 +778,37 @@ class IngestionAPIView(APIView):
     ) -> Dict[str, Any]:
         provider_normalized = (provider or "").strip().lower()
         fecha = None
+        fecha_raw: Optional[Any] = None
+        hora_raw: Optional[Any] = None
+
+        if provider_normalized == "global_news":
+            hora_candidata = row.get("Hora") or row.get("hora")
+            if self._valor_contiene_datos(hora_candidata):
+                hora_raw = hora_candidata
+
         if provider_normalized == "medios":
             fecha = parsear_datetime(row.get("published"))
         elif provider_normalized == "global_news":
-            fecha = parsear_datetime(
-                self._obtener_primera_coincidencia(row, ["fecha"])
-            )
+            fecha_raw = self._obtener_primera_coincidencia(row, ["fecha"])
+            if hora_raw is not None:
+                fecha = combinar_fecha_hora(fecha_raw, hora_raw)
+            if fecha is None:
+                fecha = parsear_datetime(fecha_raw)
+
         if fecha is None:
-            fecha_raw = self._obtener_primera_coincidencia(
-                row,
-                ["fecha", "published", "date"],
-            )
-            hora_raw = None
-            if provider_normalized != "stakeholders":
+            if fecha_raw is None:
+                fecha_raw = self._obtener_primera_coincidencia(
+                    row,
+                    ["fecha", "published", "date"],
+                )
+
+            if hora_raw is None and provider_normalized != "stakeholders":
                 hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
             if hora_raw is not None:
                 fecha = combinar_fecha_hora(fecha_raw, hora_raw)
-            else:
+
+            if fecha is None:
                 fecha = parsear_datetime(fecha_raw)
         titulo = limpiar_texto(
             self._obtener_primera_coincidencia(
