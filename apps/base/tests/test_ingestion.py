@@ -38,8 +38,8 @@ class IngestionAPITests(SimpleTestCase):
     def test_detects_medios_twk_from_csv_and_forwards_payload(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -71,7 +71,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.status_code, 201)
         listado = response.data["listado"]
         self.assertEqual(len(listado), 1)
-        self.assertEqual(listado[0]["autor"], "Autor")
+        self.assertEqual(listado[0]["autor"], "Fuente")
         self.assertEqual(listado[0]["tipo"], "medios")
         self.assertEqual(response.data["duplicados"], 0)
         self.assertEqual(response.data["descartados"], 0)
@@ -85,8 +85,8 @@ class IngestionAPITests(SimpleTestCase):
         proyecto = mock_proyecto.objects.filter.return_value.first.return_value
         proyecto.tipo_envio = "automatico"
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -136,8 +136,8 @@ class IngestionAPITests(SimpleTestCase):
         proyecto = mock_proyecto.objects.filter.return_value.first.return_value
         proyecto.tipo_envio = "manual"
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -211,7 +211,7 @@ class IngestionAPITests(SimpleTestCase):
         listado = response.data["listado"]
         self.assertEqual(len(listado), 1)
         alerta = listado[0]
-        self.assertEqual(alerta["autor"], "Autor GN")
+        self.assertEqual(alerta["autor"], "Canal GN")
         self.assertEqual(alerta["titulo"], "Noticia")
         self.assertEqual(alerta["contenido"], "Contenido GN")
 
@@ -271,7 +271,7 @@ class IngestionAPITests(SimpleTestCase):
         listado = response.data["listado"]
         self.assertEqual(len(listado), 1)
         alerta = listado[0]
-        self.assertEqual(alerta["autor"], "Autor SH")
+        self.assertEqual(alerta["autor"], "FUENTE")
         self.assertEqual(alerta["titulo"], "Stakeholder News")
         self.assertEqual(alerta["contenido"], "Resumen SH")
 
@@ -357,16 +357,55 @@ class IngestionAPITests(SimpleTestCase):
         listado = response.data["listado"]
         self.assertEqual(len(listado), 1)
         alerta = listado[0]
-        self.assertEqual(alerta["autor"], "Autor DM")
+        self.assertEqual(alerta["autor"], "Fuente DM")
         self.assertEqual(alerta["titulo"], "Determinacion")
         self.assertEqual(alerta["contenido"], "Resumen DM")
+
+    @patch("apps.base.api.ingestion.Proyecto")
+    def test_determ_prefiere_columna_author_en_redes(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, tipo_alerta="redes")
+        content = (
+            "mention_snippet,date,time,reach,engagement_rate,AUTHOR,FROM,url,social_network\n"
+            "Contenido determin,2024-05-21,10:00,1500,12,Autor Preferido,Autor Alterno,http://example.com/determ,Twitter\n"
+        )
+        uploaded = SimpleUploadedFile(
+            "determ_redes.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNotNone(self.ultimo_registro_red)
+        self.assertEqual(self.ultimo_registro_red.get("autor"), "Autor Preferido")
+        self.assertEqual(response.data["listado"][0]["autor"], "Autor Preferido")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_rechaza_archivo_sin_columna_url(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "title,content,published,extra_author_attributes.name,reach\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000\n"
+            "title,content,published,extra_source_attributes.name,reach\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -389,8 +428,8 @@ class IngestionAPITests(SimpleTestCase):
     def test_rechaza_archivo_con_columna_url_sin_datos(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -419,7 +458,7 @@ class IngestionAPITests(SimpleTestCase):
                 "title",
                 "content",
                 "published",
-                "extra_author_attributes.name",
+                "extra_source_attributes.name",
                 "reach",
                 "url",
                 "columna_vacia",
@@ -430,7 +469,7 @@ class IngestionAPITests(SimpleTestCase):
                 "Titulo",
                 "Contenido",
                 "2024-01-01",
-                "Autor",
+                "Fuente",
                 "1000",
                 "http://example.com/desde-xlsx",
                 None,
@@ -498,6 +537,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(registro["fecha"])
         self.assertEqual(registro["fecha"].date(), date(2024, 5, 10))
         self.assertEqual(registro["reach"], 2500)
+        self.assertEqual(registro["autor"], "Canal GN")
 
     def test_mapear_medios_global_news_soporta_formato_fecha_latam(self):
         view = IngestionAPIView()
@@ -506,6 +546,7 @@ class IngestionAPITests(SimpleTestCase):
             "contenido": "Contenido GN",
             "fecha": "11/09/2025",
             "autor": "Autor GN",
+            "medio": "Canal GN",
             "audiencia": "1500",
             "url": "http://example.com/global-news",
         }
@@ -515,6 +556,7 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(registro["fecha"])
         self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
         self.assertEqual(registro["reach"], 1500)
+        self.assertEqual(registro["autor"], "Canal GN")
 
     def test_mapear_medios_stakeholders_no_combina_fecha_iso_y_hora(self):
         view = IngestionAPIView()
@@ -524,6 +566,7 @@ class IngestionAPITests(SimpleTestCase):
             "fecha": "2025-09-29",
             "hora": "08:30",
             "autor": "Autor SH",
+            "fuente": "Fuente Stakeholder",
             "audiencia": "200",
             "url": "http://example.com/stakeholder",
         }
@@ -533,13 +576,14 @@ class IngestionAPITests(SimpleTestCase):
         self.assertIsNotNone(registro["fecha"])
         self.assertEqual(registro["fecha"].date(), date(2025, 9, 29))
         self.assertEqual(registro["fecha"].time(), time.min)
+        self.assertEqual(registro["autor"], "Fuente Stakeholder")
 
     @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_duplicados(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -668,11 +712,75 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(response.data["mensaje"], "1 registros creados")
 
     @patch("apps.base.api.ingestion.Proyecto")
+    def test_redes_twk_prefiere_short_name_para_autor(self, mock_proyecto):
+        self._mock_proyecto(mock_proyecto, tipo_alerta="redes")
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(
+            [
+                "content",
+                "published",
+                "extra_author_attributes.short_name",
+                "reach",
+                "engagement",
+                "url",
+                "red_social",
+            ]
+        )
+        sheet.append(
+            [
+                "Hola desde redes",
+                "2024-02-03",
+                "Alias corto",
+                "1200",
+                "84",
+                "http://example.com/red-short",
+                "Twitter",
+            ]
+        )
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+        uploaded = SimpleUploadedFile(
+            "redes.xlsx",
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        request = self.factory.post(
+            f"/api/ingestion/?proyecto={self.proyecto_id}",
+            {"archivo": uploaded},
+            format="multipart",
+        )
+
+        with patch.object(
+            IngestionAPIView,
+            "_obtener_usuario_sistema",
+            return_value=SimpleNamespace(id=2),
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_articulo",
+            side_effect=self._fake_crear_articulo,
+        ), patch.object(
+            IngestionAPIView,
+            "_crear_red_social",
+            side_effect=self._fake_crear_red_social,
+        ):
+            response = IngestionAPIView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNotNone(self.ultimo_registro_red)
+        self.assertEqual(self.ultimo_registro_red.get("autor"), "Alias corto")
+        self.assertEqual(response.data["listado"][0]["autor"], "Alias corto")
+
+    @patch("apps.base.api.ingestion.Proyecto")
     def test_respuesta_incluye_conteo_de_descartados(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo,Contenido,2024-01-01,Autor,1000,http://example.com/articulo\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
@@ -779,12 +887,12 @@ class IngestionAPITests(SimpleTestCase):
     def test_permite_multiples_archivos_en_una_misma_peticion(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content_uno = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo 1,Contenido 1,2024-01-01,Autor 1,1000,http://example.com/articulo-1\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo 1,Contenido 1,2024-01-01,Fuente 1,1000,http://example.com/articulo-1\n"
         )
         content_dos = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo 2,Contenido 2,2024-02-02,Autor 2,500,http://example.com/articulo-2\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo 2,Contenido 2,2024-02-02,Fuente 2,500,http://example.com/articulo-2\n"
         )
         uploaded_uno = SimpleUploadedFile(
             "medios-uno.csv",
@@ -822,7 +930,7 @@ class IngestionAPITests(SimpleTestCase):
         listado = response.data["listado"]
         self.assertEqual(len(listado), 2)
         autores = {alerta["autor"] for alerta in listado}
-        self.assertSetEqual(autores, {"Autor 1", "Autor 2"})
+        self.assertSetEqual(autores, {"Fuente 1", "Fuente 2"})
         self.assertEqual(response.data["duplicados"], 0)
         self.assertEqual(response.data["descartados"], 0)
         self.assertEqual(response.data["mensaje"], "2 registros creados")
@@ -831,12 +939,12 @@ class IngestionAPITests(SimpleTestCase):
     def test_permite_archivos_en_claves_distintas(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         contenido_a = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo A,Contenido A,2024-03-03,Autor A,1500,http://example.com/articulo-a\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo A,Contenido A,2024-03-03,Fuente A,1500,http://example.com/articulo-a\n"
         )
         contenido_b = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Titulo B,Contenido B,2024-04-04,Autor B,800,http://example.com/articulo-b\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Titulo B,Contenido B,2024-04-04,Fuente B,800,http://example.com/articulo-b\n"
         )
         archivo_a = SimpleUploadedFile(
             "medios-a.csv",
@@ -874,7 +982,7 @@ class IngestionAPITests(SimpleTestCase):
         listado = response.data["listado"]
         self.assertEqual(len(listado), 2)
         autores = {alerta["autor"] for alerta in listado}
-        self.assertSetEqual(autores, {"Autor A", "Autor B"})
+        self.assertSetEqual(autores, {"Fuente A", "Fuente B"})
         self.assertEqual(response.data["duplicados"], 0)
         self.assertEqual(response.data["descartados"], 0)
         self.assertEqual(response.data["mensaje"], "2 registros creados")
@@ -883,9 +991,9 @@ class IngestionAPITests(SimpleTestCase):
     def test_aplica_filtro_de_criterios_de_aceptacion(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto, criterios=["alerta"])
         content = (
-            "title,content,published,extra_author_attributes.name,reach,url\n"
-            "Mensaje sin match,Contenido,2024-01-01,Autor,1000,http://example.com/articulo-sin-match\n"
-            "Alerta importante,Contenido,2024-01-01,Autor,1000,http://example.com/articulo-alerta\n"
+            "title,content,published,extra_source_attributes.name,reach,url\n"
+            "Mensaje sin match,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo-sin-match\n"
+            "Alerta importante,Contenido,2024-01-01,Fuente,1000,http://example.com/articulo-alerta\n"
         )
         uploaded = SimpleUploadedFile(
             "medios.csv",
