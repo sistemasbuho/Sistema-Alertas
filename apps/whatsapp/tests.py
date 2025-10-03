@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
+from apps.whatsapp.utils import ordenar_alertas_por_fecha
 
 
 class EnviarAlertasAutomaticoFechaTests(SimpleTestCase):
@@ -70,3 +71,55 @@ class EnviarAlertasAutomaticoFechaTests(SimpleTestCase):
 
         alerta_pasada = mock_formatear_mensaje.call_args[0][0]
         self.assertEqual(alerta_pasada["fecha_publicacion"], "2025-09-23 4:01:38 PM")
+
+
+class OrdenarAlertasPorFechaTests(SimpleTestCase):
+    def test_ordena_por_fecha_y_hora_cuando_estan_separadas(self):
+        alertas = [
+            {"id": "c", "fecha": "2024-01-03", "hora": "18:45"},
+            {"id": "b", "fecha": "2024-01-03", "hora": "08:15"},
+            {"id": "a", "fecha": "2024-01-02"},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual([alerta["id"] for alerta in ordenadas], ["a", "b", "c"])
+
+    def test_ordena_usando_campo_time(self):
+        alertas = [
+            {"id": "primera", "fecha_publicacion": "2024-05-01", "time": "07:30"},
+            {"id": "segunda", "fecha_publicacion": "2024-05-01", "time": "19:10"},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual([alerta["id"] for alerta in ordenadas], ["primera", "segunda"])
+
+    def test_ordena_cuando_fecha_tiene_hora_en_formato_12h(self):
+        alertas = [
+            {"id": "tercera", "fecha_publicacion": "2025-09-14 7:42:07 PM"},
+            {"id": "primera", "fecha_publicacion": "2025-09-14 2:28:06 PM"},
+            {"id": "segunda", "fecha_publicacion": "2025-09-14 4:08:08 PM"},
+            {"id": "cuarta", "fecha_publicacion": "2025-09-17 11:35:27 PM"},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual(
+            [alerta["id"] for alerta in ordenadas],
+            ["primera", "segunda", "tercera", "cuarta"],
+        )
+
+    def test_ordena_cuando_indicador_am_pm_tiene_puntos(self):
+        alertas = [
+            {"id": "tercera", "fecha_publicacion": "2025-09-14 7:42:07 p. m."},
+            {"id": "primera", "fecha_publicacion": "2025-09-14 2:28:06 a. m."},
+            {"id": "segunda", "fecha_publicacion": "2025-09-14 4:08:08 p. m."},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual(
+            [alerta["id"] for alerta in ordenadas],
+            ["primera", "segunda", "tercera"],
+        )
