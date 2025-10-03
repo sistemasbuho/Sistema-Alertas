@@ -155,6 +155,7 @@ class IngestionAPIView(APIView):
             self._notificar_ruta_externa(respuesta)
             return Response(respuesta, status=405)
 
+        self._usuario_sistema_cache = self._obtener_usuario_desde_request(request)
         resultado = self._persistir_registros(registros_filtrados, proyecto)
         respuesta = self._construir_respuesta_exito(
             registros_filtrados,
@@ -881,13 +882,44 @@ class IngestionAPIView(APIView):
     # ------------------------------------------------------------------
     # Persistencia y serialización
     # ------------------------------------------------------------------
+    def _obtener_usuario_desde_request(self, request):
+        usuario = getattr(request, "user", None)
+        if usuario and getattr(usuario, "is_authenticated", False):
+            return usuario
+
+        posibles_fuentes = []
+        if hasattr(request, "data"):
+            posibles_fuentes.append(request.data)
+        if hasattr(request, "query_params"):
+            posibles_fuentes.append(request.query_params)
+
+        UserModel = get_user_model()
+
+        for fuente in posibles_fuentes:
+            if not hasattr(fuente, "get"):
+                continue
+            for clave in ("usuario_id", "usuario", "user_id", "created_by"):
+                valor = fuente.get(clave)
+                if isinstance(valor, list):
+                    valor = valor[0]
+                if not valor:
+                    continue
+                try:
+                    return UserModel.objects.get(id=valor)
+                except (UserModel.DoesNotExist, ValueError, TypeError):
+                    continue
+
+        return self._obtener_usuario_sistema()
+
     def _persistir_registros(self, registros: List[Dict[str, Any]], proyecto: Proyecto) -> Dict[str, List[Dict[str, Any]]]:
         errores: List[Dict[str, Any]] = []
         listado: List[Dict[str, Any]] = []
         duplicados = 0
         descartados = 0
-        sistema_user = self._obtener_usuario_sistema()
-        self._usuario_sistema_cache = sistema_user
+        sistema_user = getattr(self, "_usuario_sistema_cache", None)
+        if sistema_user is None:
+            sistema_user = self._obtener_usuario_sistema()
+            self._usuario_sistema_cache = sistema_user
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
         for indice, registro in enumerate(registros, start=1):
@@ -932,6 +964,7 @@ class IngestionAPIView(APIView):
                 reach=registro.get("reach"),
                 proyecto=proyecto,
                 created_by=sistema_user,
+                modified_by=sistema_user,
             )
 
             DetalleEnvio.objects.create(
@@ -939,6 +972,8 @@ class IngestionAPIView(APIView):
                 estado_revisado=True,
                 medio=articulo,
                 proyecto=proyecto,
+                created_by=sistema_user,
+                modified_by=sistema_user,
             )
         return articulo
 
@@ -985,6 +1020,11 @@ class IngestionAPIView(APIView):
                     if red_social_obj:
                         break
 
+            usuario_creador = getattr(self, "_usuario_sistema_cache", None)
+            if usuario_creador is None:
+                usuario_creador = self._obtener_usuario_sistema()
+                self._usuario_sistema_cache = usuario_creador
+
             red = Redes.objects.create(
                 contenido=registro.get("contenido"),
                 fecha_publicacion=registro.get("fecha") or timezone.now(),
@@ -994,6 +1034,8 @@ class IngestionAPIView(APIView):
                 engagement=registro.get("engagement"),
                 red_social=red_social_obj,
                 proyecto=proyecto,
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
 
             DetalleEnvio.objects.create(
@@ -1001,6 +1043,8 @@ class IngestionAPIView(APIView):
                 estado_revisado=True,
                 red_social=red,
                 proyecto=proyecto,
+                created_by=usuario_creador,
+                modified_by=usuario_creador,
             )
         return red
 
