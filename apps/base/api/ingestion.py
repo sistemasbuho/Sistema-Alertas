@@ -865,14 +865,9 @@ class IngestionAPIView(APIView):
                 ],
             )
         elif provider_normalized == "determ_medios":
-            autor_valor = self._obtener_primera_coincidencia(
-                row,
-                [
-                    "FROM",
-                    "from",
-                    "author",
-                ],
-            )
+            autor_valor = row.get("from")
+            if not self._valor_contiene_datos(autor_valor):
+                autor_valor = row.get("FROM")
         else:
             autor_valor = self._obtener_primera_coincidencia(
                 row,

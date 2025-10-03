@@ -1196,6 +1196,59 @@ class IngestionAPITests(SimpleTestCase):
         )
 
 
+class IngestionPersistenceTests(SimpleTestCase):
+    def setUp(self):
+        self.view = IngestionAPIView()
+
+    @patch.object(IngestionAPIView, "_es_url_duplicada_por_proyecto", return_value=False)
+    def test_crear_articulo_determ_medios_crea_detalle_envio(self, _mock_es_url):
+        row = {
+            "title": "Determinacion",
+            "mention_snippet": "Resumen DM",
+            "date": "2024-05-20",
+            "from": "Fuente DM",
+            "author": "Autor DM",
+            "url": "http://example.com/determ-medios",
+        }
+
+        registro = self.view._mapear_medios_twk(row, "determ_medios")
+
+        self.assertEqual(registro["autor"], "Fuente DM")
+
+        proyecto = SimpleNamespace(id="proyecto-id")
+        sistema_user = SimpleNamespace(id=2)
+        articulo_creado = SimpleNamespace(
+            id="articulo-id",
+            titulo=registro.get("titulo"),
+            contenido=registro.get("contenido"),
+            url=registro.get("url"),
+            fecha_publicacion=registro.get("fecha"),
+            autor=registro.get("autor"),
+            reach=registro.get("reach"),
+            proyecto=proyecto,
+        )
+
+        with patch(
+            "apps.base.api.ingestion.Articulo.objects.create",
+            return_value=articulo_creado,
+        ) as mock_articulo_create, patch(
+            "apps.base.api.ingestion.DetalleEnvio.objects.create"
+        ) as mock_detalle_create:
+            articulo = self.view._crear_articulo(registro, proyecto, sistema_user)
+
+        self.assertIs(articulo, articulo_creado)
+        mock_articulo_create.assert_called_once()
+        mock_detalle_create.assert_called_once()
+
+        _args, kwargs = mock_detalle_create.call_args
+        self.assertFalse(kwargs.get("estado_enviado"))
+        self.assertTrue(kwargs.get("estado_revisado"))
+        self.assertIs(kwargs.get("medio"), articulo_creado)
+        self.assertIs(kwargs.get("proyecto"), proyecto)
+        self.assertIs(kwargs.get("created_by"), sistema_user)
+        self.assertIs(kwargs.get("modified_by"), sistema_user)
+
+
 class ObtenerArchivosTests(SimpleTestCase):
     def setUp(self):
         self.view = IngestionAPIView()
