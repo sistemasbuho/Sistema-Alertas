@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
+from apps.whatsapp.utils import ordenar_alertas_por_fecha
 
 
 class EnviarAlertasAutomaticoFechaTests(SimpleTestCase):
@@ -70,3 +71,26 @@ class EnviarAlertasAutomaticoFechaTests(SimpleTestCase):
 
         alerta_pasada = mock_formatear_mensaje.call_args[0][0]
         self.assertEqual(alerta_pasada["fecha_publicacion"], "2025-09-23 4:01:38 PM")
+
+
+class OrdenarAlertasPorFechaTests(SimpleTestCase):
+    def test_ordena_por_fecha_y_hora_cuando_estan_separadas(self):
+        alertas = [
+            {"id": "c", "fecha": "2024-01-03", "hora": "18:45"},
+            {"id": "b", "fecha": "2024-01-03", "hora": "08:15"},
+            {"id": "a", "fecha": "2024-01-02"},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual([alerta["id"] for alerta in ordenadas], ["a", "b", "c"])
+
+    def test_ordena_usando_campo_time(self):
+        alertas = [
+            {"id": "primera", "fecha_publicacion": "2024-05-01", "time": "07:30"},
+            {"id": "segunda", "fecha_publicacion": "2024-05-01", "time": "19:10"},
+        ]
+
+        ordenadas = ordenar_alertas_por_fecha(alertas)
+
+        self.assertEqual([alerta["id"] for alerta in ordenadas], ["primera", "segunda"])
