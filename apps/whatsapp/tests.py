@@ -94,18 +94,3 @@ class OrdenarAlertasPorFechaTests(SimpleTestCase):
         ordenadas = ordenar_alertas_por_fecha(alertas)
 
         self.assertEqual([alerta["id"] for alerta in ordenadas], ["primera", "segunda"])
-
-    def test_ordena_cuando_fecha_tiene_hora_en_formato_12h(self):
-        alertas = [
-            {"id": "tercera", "fecha_publicacion": "2025-09-14 7:42:07 PM"},
-            {"id": "primera", "fecha_publicacion": "2025-09-14 2:28:06 PM"},
-            {"id": "segunda", "fecha_publicacion": "2025-09-14 4:08:08 PM"},
-            {"id": "cuarta", "fecha_publicacion": "2025-09-17 11:35:27 PM"},
-        ]
-
-        ordenadas = ordenar_alertas_por_fecha(alertas)
-
-        self.assertEqual(
-            [alerta["id"] for alerta in ordenadas],
-            ["primera", "segunda", "tercera", "cuarta"],
-        )

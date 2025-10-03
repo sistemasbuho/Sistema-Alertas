@@ -40,14 +40,6 @@ def _parse_datetime_value(valor: object) -> datetime | None:
                     return fecha.replace(tzinfo=dt_timezone.utc)
                 return fecha
 
-            formatos_12h = ("%Y-%m-%d %I:%M:%S %p", "%Y-%m-%d %I:%M %p")
-            for formato in formatos_12h:
-                try:
-                    fecha = datetime.strptime(texto, formato)
-                except ValueError:
-                    continue
-                return fecha.replace(tzinfo=dt_timezone.utc)
-
     return None
 
 
