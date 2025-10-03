@@ -59,7 +59,7 @@ class Articulo(BaseModel):
     contenido = models.TextField(verbose_name="content", null=True, blank=True)
     url = models.URLField(verbose_name="url",max_length=5000, unique=False, blank=True)
     fecha_publicacion = models.DateTimeField(verbose_name="Publicado", null=True, blank=True)
-    autor = models.CharField(verbose_name="title", max_length=255, null=True, blank=True)
+    autor = models.CharField(verbose_name="title", max_length=600, null=True, blank=True)
     reach = models.IntegerField("reach", null=True, blank=True)
     proyecto = models.ForeignKey(
         "proyectos.Proyecto", 
@@ -75,7 +75,7 @@ class Redes(BaseModel):
     contenido = models.TextField(verbose_name="Contenido",null=True, blank=True)
     fecha_publicacion = models.DateTimeField(verbose_name="Publicado")
     url = models.URLField(verbose_name="url",max_length=10000, unique=False, blank=True)
-    autor =  models.CharField(max_length=100, null=True, blank=True)
+    autor =  models.CharField(max_length=600, null=True, blank=True)
     reach = models.IntegerField(null=True, blank=True)
     engagement = models.IntegerField(null=True, blank=True)
     red_social = models.ForeignKey(RedesSociales, models.SET_NULL, null=True, blank=True)
