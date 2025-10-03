@@ -559,6 +559,25 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(registro["reach"], 1500)
         self.assertEqual(registro["autor"], "Canal GN")
 
+    def test_mapear_medios_global_news_soporta_hora_duplicada(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo GN",
+            "contenido": "Contenido GN",
+            "fecha": "2025-09-11",
+            "Hora": "05:59:25\n05:59:25",
+            "autor": "Autor GN",
+            "medio": "Canal GN",
+            "audiencia": "1500",
+            "url": "http://example.com/global-news",
+        }
+
+        registro = view._mapear_medios_twk(row, "global_news")
+
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
+        self.assertEqual(registro["fecha"].time(), time(5, 59, 25))
+
     def test_mapear_medios_stakeholders_no_combina_fecha_iso_y_hora(self):
         view = IngestionAPIView()
         row = {

@@ -790,7 +790,11 @@ class IngestionAPIView(APIView):
                 ["fecha", "published", "date"],
             )
             hora_raw = None
-            if provider_normalized != "stakeholders":
+            if provider_normalized == "global_news":
+                hora_raw = row.get("Hora") or row.get("hora")
+                if not self._valor_contiene_datos(hora_raw):
+                    hora_raw = None
+            if hora_raw is None and provider_normalized != "stakeholders":
                 hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
             if hora_raw is not None:

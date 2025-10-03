@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from datetime import date, datetime, time, timedelta
 from typing import Iterable as _Iterable
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -180,7 +182,17 @@ def parsear_hora(value: Any) -> Optional[time]:
     texto = str(value).strip()
     if not texto:
         return None
-    return parse_time(texto)
+    parsed = parse_time(texto)
+    if parsed:
+        return parsed
+
+    coincidencias = re.findall(r"\d{1,2}:\d{2}(?::\d{2})?", texto)
+    for coincidencia in coincidencias:
+        parsed_coincidencia = parse_time(coincidencia)
+        if parsed_coincidencia:
+            return parsed_coincidencia
+
+    return None
 
 
 def combinar_fecha_hora(fecha_value: Any, hora_value: Any) -> Optional[datetime]:
