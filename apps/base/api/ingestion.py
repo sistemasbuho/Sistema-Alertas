@@ -764,14 +764,15 @@ class IngestionAPIView(APIView):
             ["fecha", "published", "date"],
         )
         provider_normalized = (provider or "").strip().lower()
-        hora_raw = None
         if provider_normalized == "stakeholders":
+            fecha = parsear_datetime(fecha_raw)
+        else:
             hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
-        if hora_raw is not None:
-            fecha = combinar_fecha_hora(fecha_raw, hora_raw)
-        else:
-            fecha = parsear_datetime(fecha_raw)
+            if hora_raw is not None:
+                fecha = combinar_fecha_hora(fecha_raw, hora_raw)
+            else:
+                fecha = parsear_datetime(fecha_raw)
         titulo = limpiar_texto(
             self._obtener_primera_coincidencia(
                 row,
