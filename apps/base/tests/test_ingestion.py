@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import date, datetime, time
 from io import BytesIO
 from types import SimpleNamespace
@@ -322,8 +323,8 @@ class IngestionAPITests(SimpleTestCase):
     def test_detects_determ_medios_provider(self, mock_proyecto):
         self._mock_proyecto(mock_proyecto)
         content = (
-            "TITLE,MENTION_SNIPPET,DATE,AUTHOR,FROM,URL\n"
-            "Determinacion,Resumen DM,2024-05-20,Autor DM,Fuente DM,http://example.com/determ-medios\n"
+            "TITLE,MENTION_SNIPPET,DATE,TIME,REACH,ENGAGEMENT_RATE,AUTHOR,FROM,URL\n"
+            "Determinacion,Resumen DM,2024-05-20,08:15,2000,7,Autor DM,Fuente DM,http://example.com/determ-medios\n"
         )
         uploaded = SimpleUploadedFile(
             "determ_medios.csv",
@@ -557,6 +558,44 @@ class IngestionAPITests(SimpleTestCase):
         self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
         self.assertEqual(registro["reach"], 1500)
         self.assertEqual(registro["autor"], "Canal GN")
+
+    def test_mapear_medios_global_news_soporta_hora_duplicada(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo GN",
+            "contenido": "Contenido GN",
+            "fecha": "2025-09-11",
+            "Hora": "05:59:25\n05:59:25",
+            "autor": "Autor GN",
+            "medio": "Canal GN",
+            "audiencia": "1500",
+            "url": "http://example.com/global-news",
+        }
+
+        registro = view._mapear_medios_twk(row, "global_news")
+
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
+        self.assertEqual(registro["fecha"].time(), time(5, 59, 25))
+
+    def test_mapear_medios_global_news_reemplaza_hora_de_fecha_iso(self):
+        view = IngestionAPIView()
+        row = {
+            "titulo": "Titulo GN",
+            "contenido": "Contenido GN",
+            "fecha": "2025-09-11 12:00:00 AM",
+            "Hora": "05:59:25",
+            "autor": "Autor GN",
+            "medio": "Canal GN",
+            "audiencia": "1500",
+            "url": "http://example.com/global-news",
+        }
+
+        registro = view._mapear_medios_twk(row, "global_news")
+
+        self.assertIsNotNone(registro["fecha"])
+        self.assertEqual(registro["fecha"].date(), date(2025, 9, 11))
+        self.assertEqual(registro["fecha"].time(), time(5, 59, 25))
 
     def test_mapear_medios_stakeholders_no_combina_fecha_iso_y_hora(self):
         view = IngestionAPIView()
@@ -1194,6 +1233,235 @@ class IngestionAPITests(SimpleTestCase):
             url=registro.get("url"),
             red_social=red_social,
         )
+
+
+class IngestionPersistenceTests(SimpleTestCase):
+    def setUp(self):
+        self.view = IngestionAPIView()
+
+    @patch.object(IngestionAPIView, "_es_url_duplicada_por_proyecto", return_value=False)
+    def test_crear_articulo_determ_medios_crea_detalle_envio(self, _mock_es_url):
+        row = {
+            "title": "Determinacion",
+            "mention_snippet": "Resumen DM",
+            "date": "2024-05-20",
+            "time": "07:45",
+            "reach": "1500",
+            "engagement_rate": "12",
+            "from": "Fuente DM",
+            "author": "Autor DM",
+            "url": "http://example.com/determ-medios",
+        }
+
+        registro = self.view._mapear_medios_twk(row, "determ_medios")
+
+        self.assertEqual(registro["autor"], "Fuente DM")
+
+        proyecto = SimpleNamespace(id="proyecto-id")
+        sistema_user = SimpleNamespace(id=2)
+        articulo_creado = SimpleNamespace(
+            id="articulo-id",
+            titulo=registro.get("titulo"),
+            contenido=registro.get("contenido"),
+            url=registro.get("url"),
+            fecha_publicacion=registro.get("fecha"),
+            autor=registro.get("autor"),
+            reach=registro.get("reach"),
+            proyecto=proyecto,
+        )
+
+        with patch(
+            "apps.base.api.ingestion.transaction.atomic",
+            return_value=nullcontext(),
+        ) as mock_atomic, patch(
+            "apps.base.api.ingestion.Articulo.objects.create",
+            return_value=articulo_creado,
+        ) as mock_articulo_create, patch.object(
+            IngestionAPIView,
+            "_asegurar_detalle_envio",
+            return_value=SimpleNamespace(id="detalle-id"),
+        ) as mock_detalle_create:
+            articulo = self.view._crear_articulo(registro, proyecto, sistema_user)
+
+        self.assertIs(articulo, articulo_creado)
+        mock_atomic.assert_called_once()
+        mock_articulo_create.assert_called_once()
+        mock_detalle_create.assert_called_once_with(
+            articulo=articulo_creado,
+            proyecto=proyecto,
+            usuario=sistema_user,
+        )
+
+    @patch.object(IngestionAPIView, "_es_url_duplicada_por_proyecto", return_value=False)
+    def test_crear_red_social_crea_detalle_envio(self, _mock_es_url):
+        registro = {
+            "contenido": "Contenido red",
+            "fecha": timezone.now(),
+            "url": "http://example.com/red",
+            "autor": "Autor Red",
+            "reach": 75,
+            "engagement": 12,
+            "red_social": "Twitter",
+        }
+
+        proyecto = SimpleNamespace(id="proyecto-id")
+        usuario = SimpleNamespace(id=3)
+        red_creada = SimpleNamespace(
+            id="red-id",
+            contenido=registro.get("contenido"),
+            fecha_publicacion=registro.get("fecha"),
+            autor=registro.get("autor"),
+            reach=registro.get("reach"),
+            engagement=registro.get("engagement"),
+            url=registro.get("url"),
+            red_social=None,
+        )
+
+        self.view._usuario_sistema_cache = usuario
+
+        with patch(
+            "apps.base.api.ingestion.transaction.atomic",
+            return_value=nullcontext(),
+        ) as mock_atomic, patch(
+            "apps.base.api.ingestion.Redes.objects.create",
+            return_value=red_creada,
+        ) as mock_red_create, patch.object(
+            IngestionAPIView,
+            "_asegurar_detalle_envio",
+            return_value=SimpleNamespace(id="detalle-id"),
+        ) as mock_detalle_create, patch(
+            "apps.base.api.ingestion.RedesSociales.objects.filter",
+            return_value=SimpleNamespace(first=lambda: None),
+        ):
+            red = self.view._crear_red_social(registro, proyecto)
+
+        self.assertIs(red, red_creada)
+        mock_atomic.assert_called_once()
+        mock_red_create.assert_called_once()
+        mock_detalle_create.assert_called_once_with(
+            red=red_creada,
+            proyecto=proyecto,
+            usuario=usuario,
+        )
+
+    def test_asegurar_detalle_envio_crea_detalle_para_medio(self):
+        proyecto = SimpleNamespace(id="proyecto-id")
+        articulo = SimpleNamespace(id="articulo-id")
+        usuario = SimpleNamespace(id=5)
+        detalle_creado = SimpleNamespace(id="detalle-id")
+
+        with patch(
+            "apps.base.api.ingestion.DetalleEnvio.objects.get_or_create",
+            return_value=(detalle_creado, True),
+        ) as mock_get_or_create:
+            resultado = self.view._asegurar_detalle_envio(
+                articulo=articulo,
+                proyecto=proyecto,
+                usuario=usuario,
+            )
+
+        self.assertIs(resultado, detalle_creado)
+        mock_get_or_create.assert_called_once_with(
+            medio=articulo,
+            proyecto=proyecto,
+            defaults={
+                "estado_enviado": False,
+                "estado_revisado": True,
+                "created_by": usuario,
+                "modified_by": usuario,
+            },
+        )
+
+    def test_asegurar_detalle_envio_actualiza_detalle_existente(self):
+        proyecto = SimpleNamespace(id="proyecto-id")
+        articulo = SimpleNamespace(id="articulo-id")
+        usuario = SimpleNamespace(id=6)
+
+        detalle_existente = SimpleNamespace(pk=1)
+
+        def refresh():
+            setattr(detalle_existente, "_refrescado", True)
+
+        detalle_existente.refresh_from_db = refresh
+
+        class UpdateCapture:
+            def __init__(self):
+                self.kwargs = None
+
+            def update(self, **kwargs):
+                self.kwargs = kwargs
+                return 1
+
+        update_capture = UpdateCapture()
+
+        with patch(
+            "apps.base.api.ingestion.DetalleEnvio.objects.get_or_create",
+            return_value=(detalle_existente, False),
+        ) as mock_get_or_create, patch(
+            "apps.base.api.ingestion.DetalleEnvio.objects.filter",
+            return_value=update_capture,
+        ) as mock_filter:
+            resultado = self.view._asegurar_detalle_envio(
+                articulo=articulo,
+                proyecto=proyecto,
+                usuario=usuario,
+            )
+
+        self.assertIs(resultado, detalle_existente)
+        self.assertTrue(getattr(detalle_existente, "_refrescado", False))
+        mock_get_or_create.assert_called_once()
+        mock_filter.assert_called_once_with(pk=detalle_existente.pk)
+        self.assertEqual(
+            update_capture.kwargs,
+            {"estado_revisado": True, "modified_by": usuario},
+        )
+
+    def test_asegurar_detalle_envio_para_red(self):
+        proyecto = SimpleNamespace(id="proyecto-id")
+        red = SimpleNamespace(id="red-id")
+        usuario = SimpleNamespace(id=7)
+        detalle_creado = SimpleNamespace(id="detalle-id")
+
+        with patch(
+            "apps.base.api.ingestion.DetalleEnvio.objects.get_or_create",
+            return_value=(detalle_creado, True),
+        ) as mock_get_or_create:
+            resultado = self.view._asegurar_detalle_envio(
+                red=red,
+                proyecto=proyecto,
+                usuario=usuario,
+            )
+
+        self.assertIs(resultado, detalle_creado)
+        mock_get_or_create.assert_called_once_with(
+            red_social=red,
+            proyecto=proyecto,
+            defaults={
+                "estado_enviado": False,
+                "estado_revisado": True,
+                "created_by": usuario,
+                "modified_by": usuario,
+            },
+        )
+
+    def test_asegurar_detalle_envio_valida_argumentos(self):
+        proyecto = SimpleNamespace(id="proyecto-id")
+        articulo = SimpleNamespace(id="articulo-id")
+        red = SimpleNamespace(id="red-id")
+
+        with self.assertRaises(ValueError):
+            self.view._asegurar_detalle_envio(
+                proyecto=proyecto,
+                usuario=None,
+            )
+
+        with self.assertRaises(ValueError):
+            self.view._asegurar_detalle_envio(
+                proyecto=proyecto,
+                usuario=None,
+                articulo=articulo,
+                red=red,
+            )
 
 
 class ObtenerArchivosTests(SimpleTestCase):

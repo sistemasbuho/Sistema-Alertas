@@ -601,14 +601,14 @@ class IngestionAPIView(APIView):
             return "medios"
         if header_set >= COLUMNAS_REDES_TWK or header_set >= COLUMNAS_REDES_TWK_VARIANTE_AUTOR:
             return "redes"
+        if self._headers_corresponden_a_determ_medios(header_set):
+            return "determ_medios"
         if header_set >= COLUMNAS_DETERM:
             return "determ"
         if self._headers_corresponden_a_global_news(header_set):
             return "global_news"
         if self._headers_corresponden_a_stakeholders(header_set):
             return "stakeholders"
-        if self._headers_corresponden_a_determ_medios(header_set):
-            return "determ_medios"
         return ""
 
     def _validar_columna_url(
@@ -778,24 +778,37 @@ class IngestionAPIView(APIView):
     ) -> Dict[str, Any]:
         provider_normalized = (provider or "").strip().lower()
         fecha = None
+        fecha_raw: Optional[Any] = None
+        hora_raw: Optional[Any] = None
+
+        if provider_normalized == "global_news":
+            hora_candidata = row.get("Hora") or row.get("hora")
+            if self._valor_contiene_datos(hora_candidata):
+                hora_raw = hora_candidata
+
         if provider_normalized == "medios":
             fecha = parsear_datetime(row.get("published"))
         elif provider_normalized == "global_news":
-            fecha = parsear_datetime(
-                self._obtener_primera_coincidencia(row, ["fecha"])
-            )
+            fecha_raw = self._obtener_primera_coincidencia(row, ["fecha"])
+            if hora_raw is not None:
+                fecha = combinar_fecha_hora(fecha_raw, hora_raw)
+            if fecha is None:
+                fecha = parsear_datetime(fecha_raw)
+
         if fecha is None:
-            fecha_raw = self._obtener_primera_coincidencia(
-                row,
-                ["fecha", "published", "date"],
-            )
-            hora_raw = None
-            if provider_normalized != "stakeholders":
+            if fecha_raw is None:
+                fecha_raw = self._obtener_primera_coincidencia(
+                    row,
+                    ["fecha", "published", "date"],
+                )
+
+            if hora_raw is None and provider_normalized != "stakeholders":
                 hora_raw = self._obtener_primera_coincidencia(row, ["hora", "time"])
 
             if hora_raw is not None:
                 fecha = combinar_fecha_hora(fecha_raw, hora_raw)
-            else:
+
+            if fecha is None:
                 fecha = parsear_datetime(fecha_raw)
         titulo = limpiar_texto(
             self._obtener_primera_coincidencia(
@@ -865,14 +878,9 @@ class IngestionAPIView(APIView):
                 ],
             )
         elif provider_normalized == "determ_medios":
-            autor_valor = self._obtener_primera_coincidencia(
-                row,
-                [
-                    "FROM",
-                    "from",
-                    "author",
-                ],
-            )
+            autor_valor = row.get("from")
+            if not self._valor_contiene_datos(autor_valor):
+                autor_valor = row.get("FROM")
         else:
             autor_valor = self._obtener_primera_coincidencia(
                 row,
@@ -1041,6 +1049,44 @@ class IngestionAPIView(APIView):
             "descartados": descartados,
         }
 
+    def _asegurar_detalle_envio(
+        self,
+        *,
+        proyecto: Proyecto,
+        usuario,
+        articulo: Optional[Articulo] = None,
+        red: Optional[Redes] = None,
+    ) -> DetalleEnvio:
+        if (articulo is None and red is None) or (articulo is not None and red is not None):
+            raise ValueError("Debe especificar únicamente un medio o una red social")
+
+        filtros: Dict[str, Any] = {"proyecto": proyecto}
+        if articulo is not None:
+            filtros["medio"] = articulo
+        else:
+            filtros["red_social"] = red
+
+        defaults = {
+            "estado_enviado": False,
+            "estado_revisado": True,
+            "created_by": usuario,
+            "modified_by": usuario,
+        }
+
+        detalle, creado = DetalleEnvio.objects.get_or_create(
+            **filtros,
+            defaults=defaults,
+        )
+
+        if not creado:
+            actualizaciones: Dict[str, Any] = {"estado_revisado": True}
+            if usuario:
+                actualizaciones["modified_by"] = usuario
+            DetalleEnvio.objects.filter(pk=detalle.pk).update(**actualizaciones)
+            detalle.refresh_from_db()
+
+        return detalle
+
     def _crear_articulo(self, registro: Dict[str, Any], proyecto: Proyecto, sistema_user) -> Articulo:
         with transaction.atomic():
             url = registro.get("url") or ""
@@ -1059,13 +1105,10 @@ class IngestionAPIView(APIView):
                 modified_by=sistema_user,
             )
 
-            DetalleEnvio.objects.create(
-                estado_enviado=False,
-                estado_revisado=True,
-                medio=articulo,
+            self._asegurar_detalle_envio(
+                articulo=articulo,
                 proyecto=proyecto,
-                created_by=sistema_user,
-                modified_by=sistema_user,
+                usuario=sistema_user,
             )
         return articulo
 
@@ -1130,13 +1173,10 @@ class IngestionAPIView(APIView):
                 modified_by=usuario_creador,
             )
 
-            DetalleEnvio.objects.create(
-                estado_enviado=False,
-                estado_revisado=True,
-                red_social=red,
+            self._asegurar_detalle_envio(
+                red=red,
                 proyecto=proyecto,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
+                usuario=usuario_creador,
             )
         return red
 
