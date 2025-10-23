@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time, timedelta
 from typing import Iterable as _Iterable
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -12,7 +13,12 @@ from django.utils.dateparse import parse_date, parse_datetime, parse_time
 def limpiar_texto(value: Any) -> Optional[str]:
     if value in (None, ""):
         return None
-    return str(value).strip()
+    texto = str(value).strip()
+    # Eliminar etiquetas <br>, <br/>, <br /> y otras variantes
+    texto = re.sub(r"<br\s*/?>", " ", texto, flags=re.IGNORECASE)
+    texto = re.sub(r"<[^>]+>", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto or None
 
 
 def normalizar_url(value: Any) -> Optional[str]:
