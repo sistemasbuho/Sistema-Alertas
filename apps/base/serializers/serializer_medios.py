@@ -12,8 +12,8 @@ class MediosSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Articulo
-        fields = "__all__" 
-        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords','estado_enviado']
+        fields = "__all__"
+        read_only_fields = ['created_at', 'modified_at', 'created_by', 'modified_by']
 
 
     def get_proyecto_nombre(self, obj):

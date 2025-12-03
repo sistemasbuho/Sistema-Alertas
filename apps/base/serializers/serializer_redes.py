@@ -12,7 +12,7 @@ class RedesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Redes
         fields = "__all__"
-        extra_fields = ['proyecto_nombre', 'estado_revisado', 'proyecto_keywords','estado_enviado']
+        read_only_fields = ['created_at', 'modified_at', 'created_by', 'modified_by']
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
