@@ -1,5 +1,8 @@
 from rest_framework import serializers
 from apps.base.models import Redes
+from django.utils import timezone
+from datetime import datetime
+import pytz
 
 
 class RedesSerializer(serializers.ModelSerializer):
@@ -7,6 +10,7 @@ class RedesSerializer(serializers.ModelSerializer):
     estado_revisado = serializers.SerializerMethodField()
     estado_enviado = serializers.SerializerMethodField()
     proyecto_keywords = serializers.SerializerMethodField()
+    fecha_publicacion = serializers.DateTimeField(required=False, allow_null=True)
 
 
     class Meta:
@@ -52,6 +56,20 @@ class RedesSerializer(serializers.ModelSerializer):
 
         return None
 
+    def to_internal_value(self, data):
+        """
+        Procesar la fecha_publicacion antes de la validación para mantener el timezone correcto.
+        """
+        internal_data = super().to_internal_value(data)
+
+        # Si hay fecha_publicacion en los datos entrantes
+        if 'fecha_publicacion' in internal_data and internal_data['fecha_publicacion']:
+            fecha = internal_data['fecha_publicacion']
+            # Si la fecha es naive (sin timezone), asumimos que ya está en UTC
+            if timezone.is_naive(fecha):
+                internal_data['fecha_publicacion'] = timezone.make_aware(fecha, pytz.UTC)
+
+        return internal_data
 
     def validate(self, data):
         """
