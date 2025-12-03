@@ -73,18 +73,15 @@ def parsear_entero(value: Any) -> Optional[int]:
     try:
         if isinstance(value, str):
             valor_normalizado = value.replace(",", "").strip()
+            if not valor_normalizado:
+                return None
             if valor_normalizado.endswith("%"):
                 valor_normalizado = valor_normalizado[:-1].strip()
+            if not valor_normalizado:
+                return None
             value = valor_normalizado
         return int(float(value))
     except (TypeError, ValueError):
-        if isinstance(value, str):
-            valor_normalizado = value.replace(",", "").strip()
-            if valor_normalizado.endswith("%"):
-                valor_normalizado = valor_normalizado[:-1].strip()
-            solo_digitos = "".join(ch for ch in valor_normalizado if ch.isdigit())
-            if solo_digitos and set(solo_digitos) <= {"0"}:
-                return 0
         return None
 
 
