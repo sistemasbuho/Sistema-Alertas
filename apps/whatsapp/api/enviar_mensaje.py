@@ -599,7 +599,14 @@ class EnviarMensajeAPIView(APIView):
         enviados = []
         no_enviados = []
 
+        # Log antes de ordenar
+        logger.info(f"Alertas antes de ordenar: {[(a.get('id'), a.get('fecha_publicacion'), a.get('fecha')) for a in alertas[:3]]}")
+
         alertas = ordenar_alertas_por_fecha(alertas)
+
+        # Log después de ordenar
+        logger.info(f"Alertas después de ordenar: {[(a.get('id'), a.get('fecha_publicacion'), a.get('fecha')) for a in alertas[:3]]}")
+
         pendientes_envio = []
 
         for alerta in alertas:
