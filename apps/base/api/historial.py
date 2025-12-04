@@ -46,6 +46,7 @@ class ExportarHistorialExcelView(View):
         proyecto = request.GET.get("proyecto")
         proyecto_nombre = request.GET.get("proyecto_nombre")
         estado = request.GET.get("estado_enviado")
+        tipo = request.GET.get("tipo")
         created_at_desde = request.GET.get("created_at_desde")
         created_at_hasta = request.GET.get("created_at_hasta")
         inicio_envio_desde = request.GET.get("inicio_envio_desde")
@@ -60,6 +61,12 @@ class ExportarHistorialExcelView(View):
         )
 
         # Filtros
+        if tipo:
+            tipo_normalizado = tipo.strip().lower()
+            if tipo_normalizado in ["medios", "medio"]:
+                queryset = queryset.filter(medio__isnull=False)
+            elif tipo_normalizado in ["redes", "red", "red_social"]:
+                queryset = queryset.filter(red_social__isnull=False)
         if usuario:
             queryset = queryset.filter(usuario_id=usuario)
         if usuario_nombre:
