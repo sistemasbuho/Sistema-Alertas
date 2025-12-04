@@ -94,7 +94,7 @@ class ProcesarAlertaExistenteAPIView(APIView):
                     "errores": [],
                     "duplicados": 1,
                     "descartados": 0,
-                    "proyecto_keywords": proyecto.palabras_clave or [],
+                    "proyecto_keywords": proyecto.keywords or [],
                     "proyecto_nombre": proyecto.nombre,
                     "info_adicional": {
                         "alerta_ya_enviada": True,
@@ -124,7 +124,7 @@ class ProcesarAlertaExistenteAPIView(APIView):
                 "errores": [],
                 "duplicados": 0,
                 "descartados": 0,
-                "proyecto_keywords": proyecto.palabras_clave or [],
+                "proyecto_keywords": proyecto.keywords or [],
                 "proyecto_nombre": proyecto.nombre,
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
