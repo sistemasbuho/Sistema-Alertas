@@ -11,10 +11,11 @@ class RedesFilter(django_filters.FilterSet):
     url = django_filters.CharFilter(field_name="url", lookup_expr="istartswith")
     proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="istartswith")
     estado_enviado = django_filters.BooleanFilter(field_name="detalles_envio__estado_enviado")
+    estado_revisado = django_filters.BooleanFilter(field_name="detalles_envio__estado_revisado")
 
     class Meta:
         model = Redes
-        fields = ["autor", "url", "proyecto", "fecha_inicio", "fecha_fin", "estado_enviado"]
+        fields = ["autor", "url", "proyecto", "fecha_inicio", "fecha_fin", "estado_enviado", "estado_revisado"]
 
 class MediosFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha", lookup_expr="gte")
@@ -26,17 +27,19 @@ class MediosFilter(django_filters.FilterSet):
     ciudad = django_filters.CharFilter(field_name="ciudad", lookup_expr="istartswith")
     proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="istartswith")
     estado_enviado = django_filters.BooleanFilter(field_name="detalles_envio__estado_enviado")
+    estado_revisado = django_filters.BooleanFilter(field_name="detalles_envio__estado_revisado")
 
 
     class Meta:
         model = Articulo
-        fields = ["medio", "url","ciudad", "proyecto", "fecha_inicio", "fecha_fin","estado_enviado","autor"]
+        fields = ["medio", "url","ciudad", "proyecto", "fecha_inicio", "fecha_fin","estado_enviado","estado_revisado","autor"]
 
 
 class DetalleEnvioFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(field_name="usuario__username", lookup_expr="icontains")
     proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
     estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
+    estado_revisado = django_filters.BooleanFilter(field_name="estado_revisado")
     created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
     created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
     inicio_envio_desde = django_filters.DateTimeFilter(field_name="inicio_envio", lookup_expr="gte")
@@ -51,6 +54,7 @@ class DetalleEnvioFilter(django_filters.FilterSet):
             "usuario_nombre",
             "proyecto_nombre",
             "estado_enviado",
+            "estado_revisado",
             "created_at_desde",
             "created_at_hasta",
             "inicio_envio_desde",
