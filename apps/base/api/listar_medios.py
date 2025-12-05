@@ -18,6 +18,7 @@ class MediosListAPIView(generics.ListAPIView):
         queryset = (
             Articulo.objects.select_related("proyecto")
             .prefetch_related("detalles_envio")
+            .filter(proyecto__tipo_alerta='medios')
         )
 
 

@@ -380,6 +380,19 @@ class IngestionAPIView(APIView):
                 or self._obtener_valor_data(data, "fecha_publicacion")
             )
 
+            red_social_valor = limpiar_texto(
+                self._obtener_valor_data(data, "red_social")
+                or self._obtener_valor_data(data, "social_network")
+            )
+
+            if not red_social_valor and url:
+                parsed_url = urlparse(url)
+                domain = parsed_url.netloc.lower()
+                for dominio, nombre in DOMINIOS_REDES_SOCIALES.items():
+                    if dominio in domain:
+                        red_social_valor = domain
+                        break
+
             registro: Dict[str, Any] = {
                 "tipo": tipo,
                 "titulo": limpiar_texto(
@@ -400,10 +413,7 @@ class IngestionAPIView(APIView):
                 "reach": parsear_entero(self._obtener_valor_data(data, "reach")),
                 "engagement": parsear_entero(self._obtener_valor_data(data, "engagement")),
                 "url": url,
-                "red_social": limpiar_texto(
-                    self._obtener_valor_data(data, "red_social")
-                    or self._obtener_valor_data(data, "social_network")
-                ),
+                "red_social": red_social_valor,
                 "proveedor": "manual",
                 "datos_adicionales": {},
             }
