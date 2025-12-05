@@ -38,7 +38,7 @@ class RedesListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         all_param = self.request.query_params.get("all", "false").lower()
-        queryset = Redes.objects.select_related("proyecto").prefetch_related("detalles_envio")
+        queryset = Redes.objects.select_related("proyecto").prefetch_related("detalles_envio").filter(proyecto__tipo_alerta='redes')
 
 
         for red in queryset:
