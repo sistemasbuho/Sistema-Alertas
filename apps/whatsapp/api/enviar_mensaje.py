@@ -600,18 +600,26 @@ class EnviarMensajeAPIView(APIView):
         no_enviados = []
 
         # Log detallado del payload recibido
-        logger.info(f"=== PAYLOAD RECIBIDO ===")
-        logger.info(f"Total alertas: {len(alertas)}")
-        for i, a in enumerate(alertas[:3]):
-            logger.info(f"Alerta {i}: id={a.get('id')}, fecha={a.get('fecha')}, fecha_publicacion={a.get('fecha_publicacion')}")
+        print("=" * 80)
+        print("=== PAYLOAD RECIBIDO ===")
+        print(f"Total alertas: {len(alertas)}")
+        for i, a in enumerate(alertas[:5]):
+            print(f"Alerta {i}: id={a.get('id')}")
+            print(f"  fecha={a.get('fecha')}")
+            print(f"  fecha_publicacion={a.get('fecha_publicacion')}")
+        print("=" * 80)
 
         # Ordenar alertas
         alertas = ordenar_alertas_por_fecha(alertas)
 
         # Log después de ordenar
-        logger.info(f"=== DESPUÉS DE ORDENAR ===")
-        for i, a in enumerate(alertas[:3]):
-            logger.info(f"Alerta {i}: id={a.get('id')}, fecha={a.get('fecha')}, fecha_publicacion={a.get('fecha_publicacion')}")
+        print("=" * 80)
+        print("=== DESPUÉS DE ORDENAR ===")
+        for i, a in enumerate(alertas[:5]):
+            print(f"Alerta {i}: id={a.get('id')}")
+            print(f"  fecha={a.get('fecha')}")
+            print(f"  fecha_publicacion={a.get('fecha_publicacion')}")
+        print("=" * 80)
 
         pendientes_envio = []
 
