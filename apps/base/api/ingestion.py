@@ -1034,7 +1034,19 @@ class IngestionAPIView(APIView):
 
         for indice, registro in enumerate(registros, start=1):
             try:
-                if registro.get("tipo") == "articulo":
+                tipo_registro = registro.get("tipo")
+
+                # Validar que el tipo de registro coincida con el tipo_alerta del proyecto
+                if tipo_registro == "articulo" and tipo_alerta_proyecto == "redes":
+                    raise ValueError(
+                        f"No se puede crear un artículo (medio) en un proyecto de tipo 'redes'"
+                    )
+                elif tipo_registro != "articulo" and tipo_alerta_proyecto == "medios":
+                    raise ValueError(
+                        f"No se puede crear una red social en un proyecto de tipo 'medios'"
+                    )
+
+                if tipo_registro == "articulo":
                     articulo = self._crear_articulo(registro, proyecto, sistema_user)
                     listado.append(
                         self._serializar_articulo(articulo, registro, tipo_alerta_proyecto)
