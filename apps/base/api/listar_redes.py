@@ -54,6 +54,8 @@ class RedesListAPIView(generics.ListAPIView):
                 else:
                     detalle.qt = "No"
 
+        return queryset
+
 class RedesUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Redes.objects.all()
