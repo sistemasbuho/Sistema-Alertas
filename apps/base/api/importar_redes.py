@@ -39,13 +39,7 @@ class ImportarRedesAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
-        # Validar que el proyecto sea de tipo 'redes'
-        if proyecto.tipo_alerta != 'redes':
-            return Response(
-                {"error": f"No se pueden importar redes a un proyecto de tipo '{proyecto.tipo_alerta}'"},
-                status=400
-            )
-
+        
         usuario_creador = self._obtener_usuario_creador(request)
 
         for data in redes_data:

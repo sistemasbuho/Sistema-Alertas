@@ -38,13 +38,6 @@ class ImportarArticuloAPIView(APIView):
         if not proyecto:
             return Response({"error": "Proyecto no encontrado"}, status=404)
 
-        # Validar que el proyecto sea de tipo 'medios'
-        if proyecto.tipo_alerta != 'medios':
-            return Response(
-                {"error": f"No se pueden importar medios a un proyecto de tipo '{proyecto.tipo_alerta}'"},
-                status=400
-            )
-
         usuario_creador = self._obtener_usuario_creador(request)
         print('lega aqui')
 
