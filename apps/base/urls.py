@@ -7,6 +7,7 @@ from apps.base.api.importar_redes import ImportarRedesAPIView
 from apps.base.api.formato_mensaje import CrearPlantillaAPIView , ListarPlantillasAPIView,CrearCamposPlantillaAPIView
 from apps.base.api.historial import HistorialEnviosListAPIView,HistorialEnviosDetailAPIView,ExportarHistorialExcelView
 from apps.base.api.ingestion import IngestionAPIView
+from apps.base.api.brightdata_trigger import BrightDataSnapshotAPIView
 from apps.base.api.procesar_alerta_existente import ProcesarAlertaExistenteAPIView
 
 from apps.base.api.login import (
@@ -44,5 +45,7 @@ urlpatterns = [
     path("exportar-historial/", ExportarHistorialExcelView.as_view(), name="exportar-historial"),
 
     path("procesar-alerta-existente/", ProcesarAlertaExistenteAPIView.as_view(), name="procesar-alerta-existente"),
+
+    path("brightdata/snapshot/", BrightDataSnapshotAPIView.as_view(), name="brightdata-snapshot"),
 
 ]
