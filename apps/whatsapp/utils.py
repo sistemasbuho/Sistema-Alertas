@@ -13,7 +13,8 @@ def _parse_datetime_value(valor: object) -> datetime | None:
     if isinstance(valor, datetime):
         if valor.tzinfo is None:
             return valor.replace(tzinfo=dt_timezone.utc)
-        return valor
+        # Convertir a UTC para comparación consistente
+        return valor.astimezone(dt_timezone.utc)
 
     if isinstance(valor, date):
         return datetime.combine(valor, time.min).replace(tzinfo=dt_timezone.utc)
@@ -25,7 +26,8 @@ def _parse_datetime_value(valor: object) -> datetime | None:
             if fecha:
                 if fecha.tzinfo is None:
                     return fecha.replace(tzinfo=dt_timezone.utc)
-                return fecha
+                # Convertir a UTC para comparación consistente
+                return fecha.astimezone(dt_timezone.utc)
 
             fecha = parse_date(texto)
             if fecha:
@@ -38,7 +40,8 @@ def _parse_datetime_value(valor: object) -> datetime | None:
             if fecha:
                 if fecha.tzinfo is None:
                     return fecha.replace(tzinfo=dt_timezone.utc)
-                return fecha
+                # Convertir a UTC para comparación consistente
+                return fecha.astimezone(dt_timezone.utc)
 
     return None
 
