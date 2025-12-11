@@ -1313,11 +1313,8 @@ class IngestionAPIView(APIView):
             raise ValueError("El usuario del sistema (id=2) no existe") from exc
 
     def _extraer_datos_adicionales(self, row: Dict[str, Any], campos_principales: Iterable[str]) -> Dict[str, Any]:
-        campos_base = set(campos_principales)
         adicionales: Dict[str, Any] = {}
         for key, value in row.items():
-            if key in campos_base:
-                continue
             valor_limpio = normalizar_valor_adicional(value)
             if valor_limpio is not None:
                 adicionales[key] = valor_limpio
