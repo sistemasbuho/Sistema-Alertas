@@ -956,15 +956,31 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_
     if token:
         url = f"{url}?token={token}"
 
-    payload = {
-        "proyecto_id": proyecto_id,
-        "tipo_alerta": tipo_alerta,
-        "alertas": alertas_enviadas,
-    }
-
+    # Extraer proveedor de la primera alerta enviada
     proveedor = data_alertas.get("proveedor")
-    if proveedor:
-        payload["proveedor"] = proveedor
+    if not proveedor and alertas_enviadas:
+        proveedor = alertas_enviadas[0].get("datos_adicionales", {}).get("proveedor")
+
+    # Obtener información del proyecto
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+        proyecto_nombre = proyecto.nombre
+        proyecto_keywords = proyecto.get_keywords_list() if hasattr(proyecto, "get_keywords_list") else []
+    except Proyecto.DoesNotExist:
+        proyecto_nombre = ""
+        proyecto_keywords = []
+
+    # Construir payload con la misma estructura de ingesta
+    payload = {
+        "proveedor": proveedor,
+        "mensaje": f"{len(alertas_enviadas)} alertas enviadas",
+        "listado": alertas_enviadas,
+        "errores": [],
+        "duplicados": 0,
+        "descartados": 0,
+        "proyecto_keywords": proyecto_keywords,
+        "proyecto_nombre": proyecto_nombre,
+    }
 
     if grupo_id:
         payload["grupo_id"] = grupo_id
