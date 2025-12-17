@@ -261,11 +261,11 @@ def normalizar_valor_adicional(value: Any) -> Optional[Any]:
     if value in (None, ""):
         return None
     if isinstance(value, datetime):
-        return formatear_fecha_respuesta(asegurar_timezone(value))
+        return asegurar_timezone(value).isoformat()
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, time):
-        return value.strftime("%H:%M:%S")
+        return value.isoformat()
     if isinstance(value, str):
         texto = value.strip()
         return texto or None
