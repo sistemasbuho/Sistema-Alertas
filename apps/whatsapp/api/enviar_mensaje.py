@@ -948,9 +948,13 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_
     if not alertas_enviadas:
         return {"detalle": "Sin alertas para enviar"}
 
-    base_url = os.getenv("MONITOREO_API_URL", "https://monitoreo.buho.media/")
-    endpoint = os.getenv("MONITOREO_API_ENDPOINT", "api/alertas/")
+    base_url = os.getenv("MONITOREO_API_URL", "https://api.monitoreo.buho.media/")
+    endpoint = os.getenv("MONITOREO_API_ENDPOINT", "ingestion/payload/")
+    token = os.getenv("MONITOREO_API_TOKEN", "*9eB2PuYDuM6BBag.tDkebgCs0kVB10")
+
     url = urljoin(base_url, endpoint)
+    if token:
+        url = f"{url}?token={token}"
 
     payload = {
         "proyecto_id": proyecto_id,
@@ -966,9 +970,6 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_
         payload["grupo_id"] = grupo_id
 
     headers = {"Content-Type": "application/json"}
-    token = os.getenv("MONITOREO_API_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
 
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
