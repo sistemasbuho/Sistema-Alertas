@@ -987,6 +987,16 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_
 
     headers = {"Content-Type": "application/json"}
 
+    print("=" * 80)
+    print("=== PAYLOAD ENVIADO A API DE MONITOREO ===")
+    print(f"URL: {url}")
+    print(f"Payload keys: {payload.keys()}")
+    print(f"Proveedor: {payload.get('proveedor')}")
+    print(f"Mensaje: {payload.get('mensaje')}")
+    print(f"Total alertas en listado: {len(payload.get('listado', []))}")
+    print(f"Proyecto: {payload.get('proyecto_nombre')}")
+    print("=" * 80)
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
