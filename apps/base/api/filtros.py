@@ -112,6 +112,7 @@ class MediosFilter(django_filters.FilterSet):
 class DetalleEnvioFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(field_name="usuario__username", lookup_expr="icontains")
     proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
+    proyecto = django_filters.CharFilter(method="filter_proyecto")
     estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
     estado_revisado = django_filters.BooleanFilter(field_name="estado_revisado")
     autor = django_filters.CharFilter(method="filter_autor")
@@ -130,6 +131,7 @@ class DetalleEnvioFilter(django_filters.FilterSet):
         fields = [
             "usuario_nombre",
             "proyecto_nombre",
+            "proyecto",
             "autor",
             "estado_enviado",
             "estado_revisado",
@@ -143,6 +145,18 @@ class DetalleEnvioFilter(django_filters.FilterSet):
             "medio_url_coincide",
             "red_social_nombre",
         ]
+
+    def filter_proyecto(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(proyecto_id=value)
+            | Q(proyecto__nombre__icontains=value)
+            | Q(medio__proyecto_id=value)
+            | Q(medio__proyecto__nombre__icontains=value)
+            | Q(red_social__proyecto_id=value)
+            | Q(red_social__proyecto__nombre__icontains=value)
+        ).distinct()
 
     def filter_autor(self, queryset, name, value):
         if not value:

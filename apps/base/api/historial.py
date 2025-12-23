@@ -79,8 +79,6 @@ class ExportarHistorialExcelView(View):
             queryset = queryset.filter(usuario_id=usuario)
         if usuario_nombre:
             queryset = queryset.filter(usuario__username__icontains=usuario_nombre)
-        if proyecto:
-            queryset = queryset.filter(Q(proyecto_id=proyecto) | Q(proyecto__nombre__icontains=proyecto))
         if proyecto_nombre:
             queryset = queryset.filter(proyecto__nombre__icontains=proyecto_nombre)
         if isinstance(estado, str):
