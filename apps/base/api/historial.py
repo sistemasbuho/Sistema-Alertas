@@ -58,9 +58,10 @@ class ExportarHistorialExcelView(View):
         red_social_nombre = request.GET.get("red_social_nombre")
         search = request.GET.get("search")
 
-        queryset = DetalleEnvio.objects.select_related(
+        queryset_base = DetalleEnvio.objects.select_related(
             "usuario", "proyecto", "medio", "red_social__red_social"
         )
+        queryset = queryset_base
 
         # Filtros
         if tipo:
@@ -69,6 +70,12 @@ class ExportarHistorialExcelView(View):
                 queryset = queryset.filter(medio__isnull=False)
             elif tipo_normalizado in ["redes", "red", "red_social"]:
                 queryset = queryset.filter(red_social__isnull=False)
+
+        # Aplicar filtros comunes del FilterSet (mismos que el listado)
+        filtro = DetalleEnvioFilter(request.GET, queryset=queryset)
+        queryset = filtro.qs
+
+        # Filtros adicionales no cubiertos por el FilterSet
         if usuario:
             queryset = queryset.filter(usuario_id=usuario)
         if usuario_nombre:
@@ -85,25 +92,9 @@ class ExportarHistorialExcelView(View):
                 queryset = queryset.filter(estado_enviado=True)
             elif estado_normalizado in valores_falsos:
                 queryset = queryset.filter(estado_enviado=False)
-        if created_at_desde:
-            queryset = queryset.filter(created_at__gte=created_at_desde)
-        if created_at_hasta:
-            queryset = queryset.filter(created_at__lte=created_at_hasta)
         if url_exacta:
             queryset = queryset.filter(
                 Q(medio__url=url_exacta) | Q(red_social__url=url_exacta)
-            )
-        if inicio_envio_desde:
-            queryset = queryset.filter(inicio_envio__gte=inicio_envio_desde)
-        if fin_envio_hasta:
-            queryset = queryset.filter(fin_envio__lte=fin_envio_hasta)
-        if medio_url:
-            queryset = queryset.filter(medio__url=medio_url)
-        if medio_url_coincide:
-            queryset = queryset.filter(medio__url__icontains=medio_url_coincide)
-        if red_social_nombre:
-            queryset = queryset.filter(
-                red_social__red_social__nombre__icontains=red_social_nombre
             )
         if search:
             queryset = queryset.filter(
