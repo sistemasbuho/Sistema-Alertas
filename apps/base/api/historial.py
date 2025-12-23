@@ -145,12 +145,12 @@ class ExportarHistorialExcelView(View):
 
             def _dt_to_str(value):
                 """
-                Devuelve la fecha en UTC, alineada a como se persiste en DB.
+                Devuelve la fecha en la zona horaria del proyecto (config actual).
                 """
                 if not value:
                     return ""
-                value_utc = value.astimezone(timezone.utc)
-                return value_utc.isoformat(sep=" ", timespec="seconds")
+                value_local = timezone.localtime(value)
+                return value_local.isoformat(sep=" ", timespec="seconds")
 
             # Determinar tipo y medio/red
             if medio:
