@@ -146,7 +146,7 @@ class ExportarHistorialExcelView(View):
                 titular = medio.titulo or ""
                 contenido = medio.contenido or ""
                 autor = medio.autor or ""
-                reach = medio.reach or ""
+                reach = medio.reach if medio.reach is not None else ""
                 engagement = ""
             elif red:
                 tipo = "Redes"
@@ -156,8 +156,8 @@ class ExportarHistorialExcelView(View):
                 titular = ""
                 contenido = red.contenido or ""
                 autor = red.autor or ""
-                reach = red.reach or ""
-                engagement = red.engagement or ""
+                reach = red.reach if red.reach is not None else ""
+                engagement = red.engagement if red.engagement is not None else ""
             else:
                 tipo = ""
                 medio_red = ""
