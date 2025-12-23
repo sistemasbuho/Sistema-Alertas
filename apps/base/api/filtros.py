@@ -13,7 +13,7 @@ class RedesFilter(django_filters.FilterSet):
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="icontains")
     url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
-    proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
+    proyecto = django_filters.CharFilter(method="filter_proyecto")
     red_social_nombre = django_filters.CharFilter(field_name="red_social__nombre", lookup_expr="icontains")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
     created_by_username = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
@@ -55,6 +55,16 @@ class RedesFilter(django_filters.FilterSet):
             return queryset.filter(detalles_envio__estado_revisado=True).exclude(detalles_envio__estado_revisado=False).distinct()
         return queryset.filter(detalles_envio__estado_revisado=False).distinct()
 
+    def filter_proyecto(self, queryset, name, value):
+        if not value:
+            return queryset
+        import uuid
+        try:
+            uuid.UUID(value)
+            return queryset.filter(Q(proyecto_id=value) | Q(proyecto__nombre__icontains=value))
+        except (ValueError, AttributeError):
+            return queryset.filter(proyecto__nombre__icontains=value)
+
 class MediosFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="lte")
@@ -66,7 +76,7 @@ class MediosFilter(django_filters.FilterSet):
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="icontains")
 
     ciudad = django_filters.CharFilter(field_name="ciudad", lookup_expr="icontains")
-    proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
+    proyecto = django_filters.CharFilter(method="filter_proyecto")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
     created_by_username = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
     usuario_nombre = django_filters.CharFilter(field_name="detalles_envio__usuario__username", lookup_expr="icontains")
@@ -107,6 +117,16 @@ class MediosFilter(django_filters.FilterSet):
         if value:
             return queryset.filter(detalles_envio__estado_revisado=True).exclude(detalles_envio__estado_revisado=False).distinct()
         return queryset.filter(detalles_envio__estado_revisado=False).distinct()
+
+    def filter_proyecto(self, queryset, name, value):
+        if not value:
+            return queryset
+        import uuid
+        try:
+            uuid.UUID(value)
+            return queryset.filter(Q(proyecto_id=value) | Q(proyecto__nombre__icontains=value))
+        except (ValueError, AttributeError):
+            return queryset.filter(proyecto__nombre__icontains=value)
 
 
 class DetalleEnvioFilter(django_filters.FilterSet):
@@ -149,14 +169,25 @@ class DetalleEnvioFilter(django_filters.FilterSet):
     def filter_proyecto(self, queryset, name, value):
         if not value:
             return queryset
-        return queryset.filter(
-            Q(proyecto_id=value)
-            | Q(proyecto__nombre__icontains=value)
-            | Q(medio__proyecto_id=value)
-            | Q(medio__proyecto__nombre__icontains=value)
-            | Q(red_social__proyecto_id=value)
-            | Q(red_social__proyecto__nombre__icontains=value)
-        ).distinct()
+        import uuid
+        try:
+            uuid.UUID(value)
+            # Es UUID válido, buscar por ID o nombre
+            return queryset.filter(
+                Q(proyecto_id=value)
+                | Q(proyecto__nombre__icontains=value)
+                | Q(medio__proyecto_id=value)
+                | Q(medio__proyecto__nombre__icontains=value)
+                | Q(red_social__proyecto_id=value)
+                | Q(red_social__proyecto__nombre__icontains=value)
+            ).distinct()
+        except (ValueError, AttributeError):
+            # No es UUID, solo buscar por nombre
+            return queryset.filter(
+                Q(proyecto__nombre__icontains=value)
+                | Q(medio__proyecto__nombre__icontains=value)
+                | Q(red_social__proyecto__nombre__icontains=value)
+            ).distinct()
 
     def filter_autor(self, queryset, name, value):
         if not value:
