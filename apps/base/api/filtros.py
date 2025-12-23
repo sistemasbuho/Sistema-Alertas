@@ -9,6 +9,7 @@ class RedesFilter(django_filters.FilterSet):
     fecha_fin = django_filters.DateFilter(field_name="fecha", lookup_expr="lte")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="istartswith")
     url = django_filters.CharFilter(field_name="url", lookup_expr="istartswith")
+    url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
     proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="istartswith")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
     created_by_username = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
@@ -18,13 +19,14 @@ class RedesFilter(django_filters.FilterSet):
 
     class Meta:
         model = Redes
-        fields = ["autor", "url", "proyecto", "fecha_inicio", "fecha_fin", "created_by", "created_by_username", "usuario_nombre", "estado_enviado", "estado_revisado"]
+        fields = ["autor", "url", "url_coincide", "proyecto", "fecha_inicio", "fecha_fin", "created_by", "created_by_username", "usuario_nombre", "estado_enviado", "estado_revisado"]
 
 class MediosFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="fecha", lookup_expr="lte")
     medio = django_filters.CharFilter(field_name="medio", lookup_expr="istartswith")
     url = django_filters.CharFilter(field_name="url", lookup_expr="istartswith")
+    url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="istartswith")
 
     ciudad = django_filters.CharFilter(field_name="ciudad", lookup_expr="istartswith")
@@ -38,7 +40,7 @@ class MediosFilter(django_filters.FilterSet):
 
     class Meta:
         model = Articulo
-        fields = ["medio", "url","ciudad", "proyecto", "fecha_inicio", "fecha_fin", "created_by", "created_by_username", "usuario_nombre", "estado_enviado","estado_revisado","autor"]
+        fields = ["medio", "url", "url_coincide", "ciudad", "proyecto", "fecha_inicio", "fecha_fin", "created_by", "created_by_username", "usuario_nombre", "estado_enviado","estado_revisado","autor"]
 
 
 class DetalleEnvioFilter(django_filters.FilterSet):
