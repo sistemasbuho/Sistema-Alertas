@@ -235,6 +235,11 @@ class IngestionAPIView(APIView):
                     status=400,
                 )
 
+            # Validar que el proveedor detectado coincida con el tipo de alerta del proyecto
+            error_validacion = self._validar_tipo_archivo_con_proyecto(provider, tipo_alerta_proyecto)
+            if error_validacion:
+                return [], provider, error_validacion
+
             registros_estandar = self._mapear_filas(provider, rows)
             if not registros_estandar:
                 return [], provider, Response(
@@ -640,6 +645,38 @@ class IngestionAPIView(APIView):
             {"detail": "La columna 'url' debe contener al menos un valor válido."},
             status=400,
         )
+
+    def _validar_tipo_archivo_con_proyecto(
+        self, provider: str, tipo_alerta_proyecto: Optional[str]
+    ) -> Optional[Response]:
+        if not tipo_alerta_proyecto:
+            return None
+
+        tipo_alerta_normalizado = tipo_alerta_proyecto.strip().lower()
+        if not tipo_alerta_normalizado:
+            return None
+
+        # Mapear proveedores a tipos de contenido
+        proveedores_medios = {"medios", "global_news", "stakeholders", "determ_medios"}
+        proveedores_redes = {"redes", "determ"}
+
+        if tipo_alerta_normalizado == "medios" and provider in proveedores_redes:
+            return Response(
+                {
+                    "detail": f"El proyecto es de tipo 'medios' pero el archivo contiene datos de redes sociales (proveedor: {provider}). Por favor, sube un archivo con contenido de medios.",
+                },
+                status=400,
+            )
+
+        if tipo_alerta_normalizado == "redes" and provider in proveedores_medios:
+            return Response(
+                {
+                    "detail": f"El proyecto es de tipo 'redes' pero el archivo contiene datos de medios (proveedor: {provider}). Por favor, sube un archivo con contenido de redes sociales.",
+                },
+                status=400,
+            )
+
+        return None
 
     def _headers_corresponden_a_global_news(self, header_set: set) -> bool:
         requeridos = {"autor - conductor", "medio", "fecha"}
