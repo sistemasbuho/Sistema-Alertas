@@ -7,7 +7,8 @@ from apps.proyectos.models import Proyecto
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
-from django.utils.timezone import now
+from django.utils import timezone
+from apps.base.api.utils import parsear_datetime
 
 
 class ImportarArticuloAPIView(APIView):
@@ -44,7 +45,7 @@ class ImportarArticuloAPIView(APIView):
         for data in articulos_data:
             titulo = data.get("titulo")
             contenido = data.get("contenido")
-            fecha = data.get("fecha")
+            fecha_raw = data.get("fecha")
             url = (data.get("url") or "").strip()
             autor = data.get("autor")
             reach = data.get("reach")
@@ -59,7 +60,7 @@ class ImportarArticuloAPIView(APIView):
                 titulo=titulo,
                 contenido=contenido,
                 url=url,
-                fecha_publicacion=fecha if fecha else now(),
+                fecha_publicacion=self._parse_fecha(fecha_raw),
                 autor=autor,
                 reach=reach,
                 proyecto=proyecto,
@@ -137,6 +138,10 @@ class ImportarArticuloAPIView(APIView):
             articulos = [articulos]
 
         return list(articulos)
+
+    def _parse_fecha(self, fecha_raw):
+        fecha = parsear_datetime(fecha_raw)
+        return fecha or timezone.now()
 
     def _obtener_usuario_creador(self, request):
         UserModel = get_user_model()

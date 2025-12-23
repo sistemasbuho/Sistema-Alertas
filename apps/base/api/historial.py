@@ -48,6 +48,7 @@ class ExportarHistorialExcelView(View):
         proyecto_nombre = request.GET.get("proyecto_nombre")
         estado = request.GET.get("estado_enviado")
         tipo = request.GET.get("tipo")
+        url_exacta = request.GET.get("url")
         created_at_desde = request.GET.get("created_at_desde")
         created_at_hasta = request.GET.get("created_at_hasta")
         inicio_envio_desde = request.GET.get("inicio_envio_desde")
@@ -88,6 +89,10 @@ class ExportarHistorialExcelView(View):
             queryset = queryset.filter(created_at__gte=created_at_desde)
         if created_at_hasta:
             queryset = queryset.filter(created_at__lte=created_at_hasta)
+        if url_exacta:
+            queryset = queryset.filter(
+                Q(medio__url=url_exacta) | Q(red_social__url=url_exacta)
+            )
         if inicio_envio_desde:
             queryset = queryset.filter(inicio_envio__gte=inicio_envio_desde)
         if fin_envio_hasta:

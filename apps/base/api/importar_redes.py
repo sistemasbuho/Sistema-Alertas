@@ -4,12 +4,13 @@ from collections.abc import Iterable
 from typing import Any, Dict, List
 
 from rest_framework.response import Response
-from django.utils.timezone import now
+from django.utils import timezone
 from apps.proyectos.models import Proyecto
 from apps.base.models import Redes,RedesSociales,DetalleEnvio
 from apps.whatsapp.api.enviar_mensaje import enviar_alertas_automatico
 from django.contrib.auth import get_user_model
 from django.http import QueryDict
+from apps.base.api.utils import parsear_datetime
 
 class ImportarRedesAPIView(APIView):
     authentication_classes = []
@@ -44,7 +45,7 @@ class ImportarRedesAPIView(APIView):
 
         for data in redes_data:
             contenido = data.get("contenido")
-            fecha = data.get("fecha")
+            fecha_raw = data.get("fecha")
             url = (data.get("url") or "").strip()
             autor = data.get("autor")
             reach = data.get("reach")
@@ -65,7 +66,7 @@ class ImportarRedesAPIView(APIView):
 
             red = Redes.objects.create(
                 contenido=contenido,
-                fecha_publicacion=fecha if fecha else now(),
+                fecha_publicacion=self._parse_fecha(fecha_raw),
                 url=url,
                 autor=autor,
                 reach=reach,
@@ -127,6 +128,10 @@ class ImportarRedesAPIView(APIView):
             },
             status=201 if creados else 400
         )
+
+    def _parse_fecha(self, fecha_raw):
+        fecha = parsear_datetime(fecha_raw)
+        return fecha or timezone.now()
 
     def _extraer_payload(self, request) -> Dict[str, Any]:
         data: Any = request.data
@@ -254,5 +259,4 @@ class ImportarRedesAPIView(APIView):
                 return value
 
         return value
-
 
