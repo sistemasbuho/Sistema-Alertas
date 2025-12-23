@@ -137,12 +137,18 @@ class ExportarHistorialExcelView(View):
                 parsed = urlparse(url)
                 return parsed.netloc or ""
 
+            def _dt_to_str(value):
+                """
+                Devuelve la fecha exactamente como se guarda en DB (incluye offset si existe).
+                """
+                return value.isoformat(sep=" ", timespec="seconds") if value else ""
+
             # Determinar tipo y medio/red
             if medio:
                 tipo = "Medios"
                 medio_red = extraer_dominio(medio.url)
                 url = medio.url
-                fecha_pub = medio.fecha_publicacion.strftime("%Y-%m-%d %H:%M:%S") if medio.fecha_publicacion else ""
+                fecha_pub = _dt_to_str(medio.fecha_publicacion)
                 titular = medio.titulo or ""
                 contenido = medio.contenido or ""
                 autor = medio.autor or ""
@@ -153,7 +159,7 @@ class ExportarHistorialExcelView(View):
                 tipo = "Redes"
                 medio_red = red.red_social.nombre if red.red_social else ""
                 url = red.url
-                fecha_pub = red.fecha_publicacion.strftime("%Y-%m-%d %H:%M:%S") if red.fecha_publicacion else ""
+                fecha_pub = _dt_to_str(red.fecha_publicacion)
                 titular = ""
                 contenido = red.contenido or ""
                 autor = red.autor or ""
@@ -195,8 +201,8 @@ class ExportarHistorialExcelView(View):
                 autor,
                 reach,
                 engagement,
-                envio.created_at.strftime("%Y-%m-%d %H:%M:%S") if envio.created_at else "",
-                envio.inicio_envio.strftime("%Y-%m-%d %H:%M:%S") if envio.inicio_envio else "",
+                _dt_to_str(envio.created_at),
+                _dt_to_str(envio.inicio_envio),
                 tiempo_envio,
             ])
 
