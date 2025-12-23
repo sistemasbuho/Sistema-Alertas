@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.encoding import escape_uri_path
 from django.views import View
 import openpyxl
@@ -139,9 +140,12 @@ class ExportarHistorialExcelView(View):
 
             def _dt_to_str(value):
                 """
-                Devuelve la fecha exactamente como se guarda en DB (incluye offset si existe).
+                Devuelve la fecha en UTC, alineada a como se persiste en DB.
                 """
-                return value.isoformat(sep=" ", timespec="seconds") if value else ""
+                if not value:
+                    return ""
+                value_utc = value.astimezone(timezone.utc)
+                return value_utc.isoformat(sep=" ", timespec="seconds")
 
             # Determinar tipo y medio/red
             if medio:
