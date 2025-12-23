@@ -8,7 +8,7 @@ class RedesFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="fecha", lookup_expr="lte")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="istartswith")
-    url = django_filters.CharFilter(field_name="url", lookup_expr="istartswith")
+    url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
     proyecto = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="istartswith")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
@@ -25,7 +25,7 @@ class MediosFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="fecha", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="fecha", lookup_expr="lte")
     medio = django_filters.CharFilter(field_name="medio", lookup_expr="istartswith")
-    url = django_filters.CharFilter(field_name="url", lookup_expr="istartswith")
+    url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="istartswith")
 

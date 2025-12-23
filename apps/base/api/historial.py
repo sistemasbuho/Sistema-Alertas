@@ -148,6 +148,7 @@ class ExportarHistorialExcelView(View):
                 autor = medio.autor or ""
                 reach = medio.reach if medio.reach is not None else ""
                 engagement = ""
+                usuario_creador = medio.created_by
             elif red:
                 tipo = "Redes"
                 medio_red = red.red_social.nombre if red.red_social else ""
@@ -158,6 +159,7 @@ class ExportarHistorialExcelView(View):
                 autor = red.autor or ""
                 reach = red.reach if red.reach is not None else ""
                 engagement = red.engagement if red.engagement is not None else ""
+                usuario_creador = red.created_by
             else:
                 tipo = ""
                 medio_red = ""
@@ -168,10 +170,19 @@ class ExportarHistorialExcelView(View):
                 autor = ""
                 reach = ""
                 engagement = ""
+                usuario_creador = None
+
+            # Determinar qué usuario mostrar
+            if envio.estado_enviado:
+                # Si se envió, mostrar el usuario que envió
+                usuario_mostrar = envio.usuario.username if envio.usuario else ""
+            else:
+                # Si no se ha enviado, mostrar el usuario que creó la alerta
+                usuario_mostrar = usuario_creador.username if usuario_creador else ""
 
             ws.append([
                 envio.proyecto.nombre if envio.proyecto else "",
-                envio.usuario.username if envio.usuario else "",
+                usuario_mostrar,
                 tipo,
                 medio_red,
                 url,
