@@ -143,7 +143,7 @@ class ExportarHistorialExcelView(View):
                 if not value:
                     return ""
                 value_local = timezone.localtime(value)
-                return value_local.isoformat(sep=" ", timespec="seconds")
+                return value_local.strftime("%Y-%m-%d %H:%M:%S")
 
             # Determinar tipo y medio/red
             if medio:
@@ -155,7 +155,7 @@ class ExportarHistorialExcelView(View):
                 contenido = medio.contenido or ""
                 autor = medio.autor or ""
                 reach = medio.reach if medio.reach is not None else ""
-                engagement = ""
+                engagement = medio.engagement if medio.engagement is not None else ""
                 usuario_creador = medio.created_by
             elif red:
                 tipo = "Redes"

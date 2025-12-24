@@ -61,10 +61,11 @@ class Articulo(BaseModel):
     fecha_publicacion = models.DateTimeField(verbose_name="Publicado", null=True, blank=True)
     autor = models.CharField(verbose_name="title", max_length=600, null=True, blank=True)
     reach = models.IntegerField("reach", null=True, blank=True)
+    engagement = models.IntegerField(null=True, blank=True)
     proyecto = models.ForeignKey(
-        "proyectos.Proyecto", 
-        on_delete=models.CASCADE, 
-        related_name="articulos", 
+        "proyectos.Proyecto",
+        on_delete=models.CASCADE,
+        related_name="articulos",
         verbose_name="Proyecto"
     )
 

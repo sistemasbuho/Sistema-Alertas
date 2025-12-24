@@ -960,6 +960,9 @@ class IngestionAPIView(APIView):
                 ],
             )
         )
+        engagement = parsear_entero(
+            self._obtener_primera_coincidencia(row, ["engagement", "engagement_rate"])
+        )
         return {
             "tipo": "articulo",
             "titulo": titulo,
@@ -967,6 +970,7 @@ class IngestionAPIView(APIView):
             "fecha": fecha,
             "autor": autor,
             "reach": reach,
+            "engagement": engagement,
             "url": url,
         }
 
@@ -1147,6 +1151,7 @@ class IngestionAPIView(APIView):
                 fecha_publicacion=registro.get("fecha") or timezone.now(),
                 autor=registro.get("autor"),
                 reach=registro.get("reach"),
+                engagement=registro.get("engagement"),
                 proyecto=proyecto,
                 created_by=sistema_user,
                 modified_by=sistema_user,
@@ -1298,7 +1303,7 @@ class IngestionAPIView(APIView):
             "fecha_creacion": formatear_fecha_respuesta(articulo.created_at),
             "autor": articulo.autor,
             "reach": articulo.reach,
-            "engagement": None,
+            "engagement": articulo.engagement,
             "url": articulo.url,
             "red_social": None,
             "proveedor": registro.get("proveedor"),
