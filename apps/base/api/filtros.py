@@ -130,7 +130,7 @@ class MediosFilter(django_filters.FilterSet):
 
 
 class DetalleEnvioFilter(django_filters.FilterSet):
-    usuario_nombre = django_filters.CharFilter(field_name="usuario__username", lookup_expr="icontains")
+    usuario_nombre = django_filters.CharFilter(method="filter_usuario_creador")
     proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
     proyecto = django_filters.CharFilter(method="filter_proyecto")
     estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
@@ -206,6 +206,14 @@ class DetalleEnvioFilter(django_filters.FilterSet):
             return queryset
         return queryset.filter(
             Q(medio__url__icontains=value) | Q(red_social__url__icontains=value)
+        )
+
+    def filter_usuario_creador(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(medio__created_by__username__icontains=value)
+            | Q(red_social__created_by__username__icontains=value)
         )
 
 
