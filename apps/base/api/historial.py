@@ -160,6 +160,8 @@ class ExportarHistorialExcelView(View):
             elif red:
                 tipo = "Redes"
                 medio_red = red.red_social.nombre if red.red_social else ""
+                if medio_red and medio_red.lower() == "twitter":
+                    medio_red = "X"
                 url = red.url
                 fecha_pub = _dt_to_str(red.fecha_publicacion)
                 titular = ""
