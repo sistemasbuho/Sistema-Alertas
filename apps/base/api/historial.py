@@ -114,7 +114,7 @@ class ExportarHistorialExcelView(View):
         # Encabezados
         ws.append([
             "Proyecto", "Usuario", "Tipo", "Medio/Red", "URL", "Fecha Publicación",
-            "Estado de Envío", "Estado Revisado", "Mensaje Enviado", "Titular",
+            "Estado de Envío", "Mensaje Enviado", "Titular",
             "Contenido", "Autor", "Reach", "Engagement", "Creado En",
             "Fecha de Envío", "Tiempo de Envío"
         ])
@@ -198,7 +198,6 @@ class ExportarHistorialExcelView(View):
                 url,
                 fecha_pub,
                 "Sí" if envio.estado_enviado else "No",
-                "Sí" if envio.estado_revisado else "No",
                 envio.mensaje or "",
                 titular,
                 contenido,
