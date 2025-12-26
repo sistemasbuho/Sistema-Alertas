@@ -142,7 +142,7 @@ class ProcesarAlertaExistenteAPIView(APIView):
                 "fecha_creacion": formatear_fecha_respuesta(alerta.created_at),
                 "autor": alerta.autor,
                 "reach": alerta.reach,
-                "engagement": None,
+                "engagement": alerta.engagement,
                 "url": alerta.url,
                 "red_social": None,
                 "proveedor": "procesamiento_manual",
