@@ -6,8 +6,8 @@ from rest_framework.pagination import PageNumberPagination
 
 
 class RedesFilter(django_filters.FilterSet):
-    fecha_inicio = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="gte")
-    fecha_fin = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="lte")
+    fecha_inicio = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
+    fecha_fin = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
     created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
     created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="icontains")
@@ -17,7 +17,7 @@ class RedesFilter(django_filters.FilterSet):
     red_social_nombre = django_filters.CharFilter(field_name="red_social__nombre", lookup_expr="icontains")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
     created_by_username = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
-    usuario_nombre = django_filters.CharFilter(field_name="detalles_envio__usuario__username", lookup_expr="icontains")
+    usuario_nombre = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
     estado_enviado = django_filters.BooleanFilter(method="filter_estado_enviado")
     estado_revisado = django_filters.BooleanFilter(method="filter_estado_revisado")
 
@@ -66,8 +66,8 @@ class RedesFilter(django_filters.FilterSet):
             return queryset.filter(proyecto__nombre__icontains=value)
 
 class MediosFilter(django_filters.FilterSet):
-    fecha_inicio = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="gte")
-    fecha_fin = django_filters.DateFilter(field_name="fecha_publicacion", lookup_expr="lte")
+    fecha_inicio = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
+    fecha_fin = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
     created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
     created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
     medio = django_filters.CharFilter(field_name="medio", lookup_expr="icontains")
@@ -79,7 +79,7 @@ class MediosFilter(django_filters.FilterSet):
     proyecto = django_filters.CharFilter(method="filter_proyecto")
     created_by = django_filters.NumberFilter(field_name="created_by__id")
     created_by_username = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
-    usuario_nombre = django_filters.CharFilter(field_name="detalles_envio__usuario__username", lookup_expr="icontains")
+    usuario_nombre = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
     estado_enviado = django_filters.BooleanFilter(method="filter_estado_enviado")
     estado_revisado = django_filters.BooleanFilter(method="filter_estado_revisado")
 
