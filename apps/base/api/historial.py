@@ -43,18 +43,7 @@ class HistorialEnviosDetailAPIView(generics.RetrieveAPIView):
 class ExportarHistorialExcelView(View):
     def get(self, request, *args, **kwargs):
         usuario = request.GET.get("usuario")
-        usuario_nombre = request.GET.get("usuario_nombre")
-        proyecto = request.GET.get("proyecto")
-        proyecto_nombre = request.GET.get("proyecto_nombre")
-        estado = request.GET.get("estado_enviado")
         tipo = request.GET.get("tipo")
-        created_at_desde = request.GET.get("created_at_desde")
-        created_at_hasta = request.GET.get("created_at_hasta")
-        inicio_envio_desde = request.GET.get("inicio_envio_desde")
-        fin_envio_hasta = request.GET.get("fin_envio_hasta")
-        medio_url = request.GET.get("medio_url")
-        medio_url_coincide = request.GET.get("medio_url_coincide")
-        red_social_nombre = request.GET.get("red_social_nombre")
         search = request.GET.get("search")
 
         queryset_base = DetalleEnvio.objects.select_related(
@@ -77,27 +66,6 @@ class ExportarHistorialExcelView(View):
         # Filtros adicionales no cubiertos por el FilterSet
         if usuario:
             queryset = queryset.filter(usuario_id=usuario)
-        if usuario_nombre:
-            queryset = queryset.filter(usuario__username__icontains=usuario_nombre)
-        if proyecto:
-            queryset = queryset.filter(
-                Q(proyecto_id=proyecto)
-                | Q(proyecto__nombre__icontains=proyecto)
-                | Q(medio__proyecto_id=proyecto)
-                | Q(medio__proyecto__nombre__icontains=proyecto)
-                | Q(red_social__proyecto_id=proyecto)
-                | Q(red_social__proyecto__nombre__icontains=proyecto)
-            ).distinct()
-        if proyecto_nombre:
-            queryset = queryset.filter(proyecto__nombre__icontains=proyecto_nombre)
-        if isinstance(estado, str):
-            estado_normalizado = estado.strip().lower()
-            valores_verdaderos = {"true", "1", "si", "sí", "enviado"}
-            valores_falsos = {"false", "0", "no", "pendiente", "no_enviado", "no enviado"}
-            if estado_normalizado in valores_verdaderos:
-                queryset = queryset.filter(estado_enviado=True)
-            elif estado_normalizado in valores_falsos:
-                queryset = queryset.filter(estado_enviado=False)
         if search:
             queryset = queryset.filter(
                 Q(mensaje__icontains=search)
