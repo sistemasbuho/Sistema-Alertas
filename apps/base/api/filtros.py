@@ -34,7 +34,8 @@ def adjust_datetime_from_utc_to_local(value):
         naive_dt = value
 
     # Convertir la fecha naive a timezone-aware en la zona horaria local
-    local_dt = local_tz.localize(naive_dt)
+    # Compatible con ZoneInfo (Python 3.9+) y pytz
+    local_dt = naive_dt.replace(tzinfo=local_tz)
 
     return local_dt
 
