@@ -141,8 +141,8 @@ CAMPOS_PRINCIPALES = {
 
 
 class IngestionAPIView(APIView):
-    authentication_classes: list = []
-    permission_classes: list = []
+    # authentication_classes: list = []
+    # permission_classes: list = []
 
     def post(self, request):
         proyecto = self._obtener_proyecto(request)
@@ -1060,7 +1060,7 @@ class IngestionAPIView(APIView):
                 except (UserModel.DoesNotExist, ValueError, TypeError):
                     continue
 
-        return self._obtener_usuario_sistema()
+        return None
 
     def _persistir_registros(self, registros: List[Dict[str, Any]], proyecto: Proyecto) -> Dict[str, List[Dict[str, Any]]]:
         errores: List[Dict[str, Any]] = []
@@ -1068,9 +1068,6 @@ class IngestionAPIView(APIView):
         duplicados = 0
         descartados = 0
         sistema_user = getattr(self, "_usuario_sistema_cache", None)
-        if sistema_user is None:
-            sistema_user = self._obtener_usuario_sistema()
-            self._usuario_sistema_cache = sistema_user
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
         for indice, registro in enumerate(registros, start=1):
@@ -1117,12 +1114,14 @@ class IngestionAPIView(APIView):
         else:
             filtros["red_social"] = red
 
-        defaults = {
+        defaults: Dict[str, Any] = {
             "estado_enviado": False,
             "estado_revisado": True,
-            "created_by": usuario,
-            "modified_by": usuario,
         }
+
+        if usuario:
+            defaults["created_by"] = usuario
+            defaults["modified_by"] = usuario
 
         detalle, creado = DetalleEnvio.objects.get_or_create(
             **filtros,
@@ -1144,18 +1143,22 @@ class IngestionAPIView(APIView):
             if self._es_url_duplicada_por_proyecto(Articulo, proyecto, url):
                 raise ValueError("La URL ya existe para este proyecto")
 
-            articulo = Articulo.objects.create(
-                titulo=registro.get("titulo"),
-                contenido=registro.get("contenido"),
-                url=url,
-                fecha_publicacion=registro.get("fecha") or timezone.now(),
-                autor=registro.get("autor"),
-                reach=registro.get("reach"),
-                engagement=registro.get("engagement"),
-                proyecto=proyecto,
-                created_by=sistema_user,
-                modified_by=sistema_user,
-            )
+            kwargs: Dict[str, Any] = {
+                "titulo": registro.get("titulo"),
+                "contenido": registro.get("contenido"),
+                "url": url,
+                "fecha_publicacion": registro.get("fecha") or timezone.now(),
+                "autor": registro.get("autor"),
+                "reach": registro.get("reach"),
+                "engagement": registro.get("engagement"),
+                "proyecto": proyecto,
+            }
+
+            if sistema_user:
+                kwargs["created_by"] = sistema_user
+                kwargs["modified_by"] = sistema_user
+
+            articulo = Articulo.objects.create(**kwargs)
 
             self._asegurar_detalle_envio(
                 articulo=articulo,
@@ -1208,22 +1211,23 @@ class IngestionAPIView(APIView):
                         break
 
             usuario_creador = getattr(self, "_usuario_sistema_cache", None)
-            if usuario_creador is None:
-                usuario_creador = self._obtener_usuario_sistema()
-                self._usuario_sistema_cache = usuario_creador
 
-            red = Redes.objects.create(
-                contenido=registro.get("contenido"),
-                fecha_publicacion=registro.get("fecha") or timezone.now(),
-                url=url,
-                autor=registro.get("autor"),
-                reach=registro.get("reach"),
-                engagement=registro.get("engagement"),
-                red_social=red_social_obj,
-                proyecto=proyecto,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
-            )
+            kwargs: Dict[str, Any] = {
+                "contenido": registro.get("contenido"),
+                "fecha_publicacion": registro.get("fecha") or timezone.now(),
+                "url": url,
+                "autor": registro.get("autor"),
+                "reach": registro.get("reach"),
+                "engagement": registro.get("engagement"),
+                "red_social": red_social_obj,
+                "proyecto": proyecto,
+            }
+
+            if usuario_creador:
+                kwargs["created_by"] = usuario_creador
+                kwargs["modified_by"] = usuario_creador
+
+            red = Redes.objects.create(**kwargs)
 
             self._asegurar_detalle_envio(
                 red=red,
