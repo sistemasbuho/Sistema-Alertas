@@ -1,15 +1,50 @@
 import django_filters
 from django.db.models import Q
+from django.utils import timezone
+from datetime import datetime
+import pytz
 from apps.base.models import Redes, Articulo, DetalleEnvio
 from rest_framework.pagination import PageNumberPagination
+
+
+def adjust_datetime_from_utc_to_local(value):
+    """
+    Ajusta una fecha que viene del frontend con Z (UTC) para interpretarla
+    como hora local de Bogotá.
+
+    Ejemplo: Frontend envía 2025-12-26T10:11:00.000Z (queriendo decir 10:11 AM Bogotá)
+    pero Django lo interpreta como 10:11 AM UTC = 05:11 AM Bogotá.
+    Esta función lo ajusta a 10:11 AM Bogotá.
+    """
+    if value is None:
+        return None
+
+    # Obtener la zona horaria configurada en Django
+    local_tz = timezone.get_current_timezone()
+
+    # Si viene como aware (con timezone), obtener la hora naive
+    if timezone.is_aware(value):
+        # La fecha viene como UTC, extraer solo los valores de fecha/hora
+        naive_dt = datetime(
+            value.year, value.month, value.day,
+            value.hour, value.minute, value.second,
+            value.microsecond
+        )
+    else:
+        naive_dt = value
+
+    # Convertir la fecha naive a timezone-aware en la zona horaria local
+    local_dt = local_tz.localize(naive_dt)
+
+    return local_dt
 
 
 
 class RedesFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
-    created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
-    created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
+    created_at_desde = django_filters.DateTimeFilter(method="filter_created_at_desde")
+    created_at_hasta = django_filters.DateTimeFilter(method="filter_created_at_hasta")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="icontains")
     url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
@@ -40,6 +75,18 @@ class RedesFilter(django_filters.FilterSet):
             "estado_revisado",
         ]
 
+    def filter_created_at_desde(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__gte=adjusted_value)
+
+    def filter_created_at_hasta(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__lte=adjusted_value)
+
     def filter_estado_enviado(self, queryset, name, value):
         if value is None:
             return queryset
@@ -68,8 +115,8 @@ class RedesFilter(django_filters.FilterSet):
 class MediosFilter(django_filters.FilterSet):
     fecha_inicio = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
     fecha_fin = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
-    created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
-    created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
+    created_at_desde = django_filters.DateTimeFilter(method="filter_created_at_desde")
+    created_at_hasta = django_filters.DateTimeFilter(method="filter_created_at_hasta")
     medio = django_filters.CharFilter(field_name="medio", lookup_expr="icontains")
     url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
@@ -103,6 +150,18 @@ class MediosFilter(django_filters.FilterSet):
             "estado_revisado",
             "autor",
         ]
+
+    def filter_created_at_desde(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__gte=adjusted_value)
+
+    def filter_created_at_hasta(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__lte=adjusted_value)
 
     def filter_estado_enviado(self, queryset, name, value):
         if value is None:
@@ -138,10 +197,10 @@ class DetalleEnvioFilter(django_filters.FilterSet):
     autor = django_filters.CharFilter(method="filter_autor")
     url = django_filters.CharFilter(method="filter_url_exacta")
     url_coincide = django_filters.CharFilter(method="filter_url_coincide")
-    created_at_desde = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
-    created_at_hasta = django_filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
-    inicio_envio_desde = django_filters.DateTimeFilter(field_name="inicio_envio", lookup_expr="gte")
-    fin_envio_hasta = django_filters.DateTimeFilter(field_name="fin_envio", lookup_expr="lte")
+    created_at_desde = django_filters.DateTimeFilter(method="filter_created_at_desde")
+    created_at_hasta = django_filters.DateTimeFilter(method="filter_created_at_hasta")
+    inicio_envio_desde = django_filters.DateTimeFilter(method="filter_inicio_envio_desde")
+    fin_envio_hasta = django_filters.DateTimeFilter(method="filter_fin_envio_hasta")
     medio_url = django_filters.CharFilter(field_name="medio__url", lookup_expr="exact")
     medio_url_coincide = django_filters.CharFilter(field_name="medio__url", lookup_expr="icontains")
     red_social_nombre = django_filters.CharFilter(field_name="red_social__red_social__nombre", lookup_expr="icontains")
@@ -165,6 +224,30 @@ class DetalleEnvioFilter(django_filters.FilterSet):
             "medio_url_coincide",
             "red_social_nombre",
         ]
+
+    def filter_created_at_desde(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__gte=adjusted_value)
+
+    def filter_created_at_hasta(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(created_at__lte=adjusted_value)
+
+    def filter_inicio_envio_desde(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(inicio_envio__gte=adjusted_value)
+
+    def filter_fin_envio_hasta(self, queryset, name, value):
+        if value is None:
+            return queryset
+        adjusted_value = adjust_datetime_from_utc_to_local(value)
+        return queryset.filter(fin_envio__lte=adjusted_value)
 
     def filter_proyecto(self, queryset, name, value):
         if not value:
