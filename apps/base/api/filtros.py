@@ -118,7 +118,8 @@ class MediosFilter(django_filters.FilterSet):
     fecha_fin = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
     created_at_desde = django_filters.DateTimeFilter(method="filter_created_at_desde")
     created_at_hasta = django_filters.DateTimeFilter(method="filter_created_at_hasta")
-    medio = django_filters.CharFilter(field_name="medio", lookup_expr="icontains")
+    fuente = django_filters.CharFilter(field_name="fuente", lookup_expr="icontains")
+    tipo_medio = django_filters.CharFilter(field_name="tipo_medio", lookup_expr="icontains")
     url = django_filters.CharFilter(field_name="url", lookup_expr="exact")
     url_coincide = django_filters.CharFilter(field_name="url", lookup_expr="icontains")
     autor = django_filters.CharFilter(field_name="autor", lookup_expr="icontains")
@@ -135,7 +136,8 @@ class MediosFilter(django_filters.FilterSet):
     class Meta:
         model = Articulo
         fields = [
-            "medio",
+            "fuente",
+            "tipo_medio",
             "url",
             "url_coincide",
             "ciudad",

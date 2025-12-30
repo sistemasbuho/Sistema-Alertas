@@ -864,6 +864,16 @@ class IngestionAPIView(APIView):
             )
 
         contenido = limpiar_texto(contenido_valor)
+
+        # Obtener fuente según proveedor
+        fuente_valor: Optional[Any] = None
+        if provider_normalized == "global_news":
+            fuente_valor = self._obtener_primera_coincidencia(row, ["Medio", "medio"])
+        elif provider_normalized == "stakeholders":
+            fuente_valor = self._obtener_primera_coincidencia(row, ["Fuente", "fuente"])
+
+        fuente = limpiar_texto(fuente_valor) if fuente_valor else None
+
         if provider_normalized == "medios":
             autor_valor = self._obtener_primera_coincidencia(
                 row,
@@ -943,6 +953,7 @@ class IngestionAPIView(APIView):
             "contenido": contenido,
             "fecha": fecha,
             "autor": autor,
+            "fuente": fuente,
             "reach": reach,
             "engagement": engagement,
             "url": url,
@@ -1123,6 +1134,7 @@ class IngestionAPIView(APIView):
                 "url": url,
                 "fecha_publicacion": registro.get("fecha") or timezone.now(),
                 "autor": registro.get("autor"),
+                "fuente": registro.get("fuente"),
                 "reach": registro.get("reach"),
                 "engagement": registro.get("engagement"),
                 "proyecto": proyecto,

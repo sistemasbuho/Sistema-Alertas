@@ -60,6 +60,8 @@ class Articulo(BaseModel):
     url = models.URLField(verbose_name="url",max_length=5000, unique=False, blank=True)
     fecha_publicacion = models.DateTimeField(verbose_name="Publicado", null=True, blank=True)
     autor = models.CharField(verbose_name="title", max_length=600, null=True, blank=True)
+    fuente = models.CharField(verbose_name="Fuente/Medio", max_length=600, null=True, blank=True)
+    tipo_medio = models.CharField(verbose_name="Tipo de Medio", max_length=200, null=True, blank=True)
     reach = models.IntegerField("reach", null=True, blank=True)
     engagement = models.IntegerField(null=True, blank=True)
     proyecto = models.ForeignKey(
