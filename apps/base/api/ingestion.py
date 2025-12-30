@@ -874,6 +874,31 @@ class IngestionAPIView(APIView):
 
         fuente = limpiar_texto(fuente_valor) if fuente_valor else None
 
+        # Obtener tipo_medio según proveedor
+        tipo_medio: Optional[str] = None
+        if provider_normalized == "global_news":
+            tipo_medio_raw = self._obtener_primera_coincidencia(row, ["Tipo de Medio", "tipo de medio"])
+            if tipo_medio_raw:
+                tipo_medio_str = str(tipo_medio_raw).strip().lower()
+                if "cable" in tipo_medio_str:
+                    tipo_medio = "Televisión"
+                elif "fm" in tipo_medio_str:
+                    tipo_medio = "Radio"
+                elif "diario" in tipo_medio_str or "revista" in tipo_medio_str:
+                    tipo_medio = "Prensa"
+                else:
+                    tipo_medio = limpiar_texto(tipo_medio_raw)
+        elif provider_normalized == "stakeholders":
+            medio_raw = self._obtener_primera_coincidencia(row, ["Medio", "medio"])
+            if medio_raw:
+                medio_str = str(medio_raw).strip().lower()
+                if "internet" in medio_str:
+                    tipo_medio = "Online"
+                else:
+                    tipo_medio = limpiar_texto(medio_raw)
+        elif provider_normalized in {"medios", "determ_medios"}:
+            tipo_medio = "Online"
+
         if provider_normalized == "medios":
             autor_valor = self._obtener_primera_coincidencia(
                 row,
@@ -954,6 +979,7 @@ class IngestionAPIView(APIView):
             "fecha": fecha,
             "autor": autor,
             "fuente": fuente,
+            "tipo_medio": tipo_medio,
             "reach": reach,
             "engagement": engagement,
             "url": url,
@@ -1135,6 +1161,7 @@ class IngestionAPIView(APIView):
                 "fecha_publicacion": registro.get("fecha") or timezone.now(),
                 "autor": registro.get("autor"),
                 "fuente": registro.get("fuente"),
+                "tipo_medio": registro.get("tipo_medio"),
                 "reach": registro.get("reach"),
                 "engagement": registro.get("engagement"),
                 "proyecto": proyecto,
