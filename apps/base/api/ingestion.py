@@ -118,9 +118,11 @@ PROVEEDORES_ENDPOINTS = {
 DOMINIOS_REDES_SOCIALES = {
     "facebook.com": "Facebook",
     "twitter.com": "Twitter",
+    "x.com": "Twitter",
     "instagram.com": "Instagram",
     "tiktok.com": "TikTok",
     "youtube.com": "YouTube",
+    "linkedin.com": "LinkedIn",
 }
 
 CAMPOS_PRINCIPALES = {
