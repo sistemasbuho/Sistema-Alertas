@@ -1417,6 +1417,11 @@ class IngestionAPIView(APIView):
         netloc = parsed.netloc.lower()
         if netloc.startswith("www."):
             netloc = netloc[4:]
+
+        # Normalize x.com and twitter.com to the same domain for deduplication
+        if netloc == "x.com":
+            netloc = "twitter.com"
+
         path = (parsed.path or "").rstrip("/")
         params = parsed.params or ""
         query = parsed.query or ""
