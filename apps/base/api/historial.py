@@ -79,13 +79,30 @@ class ExportarHistorialExcelView(View):
         ws = wb.active
         ws.title = "Historial Envíos"
 
-        # Encabezados
-        ws.append([
-            "Proyecto", "Usuario", "Tipo", "Medio/Red", "Fuente/Medio", "Tipo de Medio", "URL", "Fecha Publicación",
-            "Estado de Envío", "Mensaje Enviado", "Titular",
-            "Contenido", "Autor", "Reach", "Engagement", "Creado En",
-            "Fecha de Envío", "Tiempo de Envío"
-        ])
+        # Determinar si la descarga es exclusivamente de redes
+        es_solo_redes = False
+        if tipo:
+            tipo_normalizado = tipo.strip().lower()
+            if tipo_normalizado in ["redes", "red", "red_social"]:
+                es_solo_redes = True
+
+        # Encabezados dinámicos según el tipo
+        if es_solo_redes:
+            encabezados = [
+                "Proyecto", "Usuario", "Tipo", "Medio/Red", "Tipo de Medio", "URL", "Fecha Publicación",
+                "Estado de Envío", "Mensaje Enviado", "Titular",
+                "Contenido", "Autor", "Reach", "Engagement", "Creado En",
+                "Fecha de Envío", "Tiempo de Envío"
+            ]
+        else:
+            encabezados = [
+                "Proyecto", "Usuario", "Tipo", "Medio/Red", "Fuente/Medio", "Tipo de Medio", "URL", "Fecha Publicación",
+                "Estado de Envío", "Mensaje Enviado", "Titular",
+                "Contenido", "Autor", "Reach", "Engagement", "Creado En",
+                "Fecha de Envío", "Tiempo de Envío"
+            ]
+
+        ws.append(encabezados)
 
         for envio in queryset:
             medio = envio.medio
@@ -165,26 +182,50 @@ class ExportarHistorialExcelView(View):
                 # Si no se ha enviado, mostrar el usuario que creó la alerta
                 usuario_mostrar = usuario_creador.username if usuario_creador else ""
 
-            ws.append([
-                envio.proyecto.nombre if envio.proyecto else "",
-                usuario_mostrar,
-                tipo,
-                medio_red,
-                fuente,
-                tipo_medio_valor,
-                url,
-                fecha_pub,
-                "Sí" if envio.estado_enviado else "No",
-                envio.mensaje or "",
-                titular,
-                contenido,
-                autor,
-                reach,
-                engagement,
-                _dt_to_str(envio.created_at),
-                _dt_to_str(envio.inicio_envio),
-                tiempo_envio,
-            ])
+            # Construir fila según el tipo de descarga
+            if es_solo_redes:
+                fila = [
+                    envio.proyecto.nombre if envio.proyecto else "",
+                    usuario_mostrar,
+                    tipo,
+                    medio_red,
+                    tipo_medio_valor,
+                    url,
+                    fecha_pub,
+                    "Sí" if envio.estado_enviado else "No",
+                    envio.mensaje or "",
+                    titular,
+                    contenido,
+                    autor,
+                    reach,
+                    engagement,
+                    _dt_to_str(envio.created_at),
+                    _dt_to_str(envio.inicio_envio),
+                    tiempo_envio,
+                ]
+            else:
+                fila = [
+                    envio.proyecto.nombre if envio.proyecto else "",
+                    usuario_mostrar,
+                    tipo,
+                    medio_red,
+                    fuente,
+                    tipo_medio_valor,
+                    url,
+                    fecha_pub,
+                    "Sí" if envio.estado_enviado else "No",
+                    envio.mensaje or "",
+                    titular,
+                    contenido,
+                    autor,
+                    reach,
+                    engagement,
+                    _dt_to_str(envio.created_at),
+                    _dt_to_str(envio.inicio_envio),
+                    tiempo_envio,
+                ]
+
+            ws.append(fila)
 
         # Respuesta
         response = HttpResponse(
