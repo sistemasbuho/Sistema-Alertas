@@ -873,6 +873,25 @@ class IngestionAPIView(APIView):
             fuente_valor = self._obtener_primera_coincidencia(row, ["Medio", "medio"])
         elif provider_normalized == "stakeholders":
             fuente_valor = self._obtener_primera_coincidencia(row, ["Fuente", "fuente"])
+        elif provider_normalized in {"medios", "determ_medios"}:
+            # Para TWK medios, extraer dominio limpio de la URL
+            url_raw = self._obtener_primera_coincidencia(
+                row,
+                [
+                    "url",
+                    "link",
+                    "link (streaming - imagen)",
+                    "link (streaming – imagen)",
+                ],
+            )
+            if url_raw:
+                url_normalizada = normalizar_url(url_raw)
+                if url_normalizada:
+                    parsed = urlparse(url_normalizada)
+                    dominio = parsed.netloc.lower()
+                    if dominio.startswith("www."):
+                        dominio = dominio[4:]
+                    fuente_valor = dominio
 
         fuente = limpiar_texto(fuente_valor) if fuente_valor else None
 

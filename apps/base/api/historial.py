@@ -96,7 +96,7 @@ class ExportarHistorialExcelView(View):
             ]
         else:
             encabezados = [
-                "Proyecto", "Usuario", "Tipo", "Medio/Red", "Fuente/Medio", "Tipo de Medio", "URL", "Fecha Publicación",
+                "Proyecto", "Usuario", "Tipo", "Medio/Red", "Tipo de Medio", "URL", "Fecha Publicación",
                 "Estado de Envío", "Mensaje Enviado", "Titular",
                 "Contenido", "Autor", "Reach", "Engagement", "Creado En",
                 "Fecha de Envío", "Tiempo de Envío"
@@ -209,7 +209,6 @@ class ExportarHistorialExcelView(View):
                     usuario_mostrar,
                     tipo,
                     medio_red,
-                    fuente,
                     tipo_medio_valor,
                     url,
                     fecha_pub,
