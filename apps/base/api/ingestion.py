@@ -1346,7 +1346,7 @@ class IngestionAPIView(APIView):
         fecha_origen = articulo.fecha_publicacion or registro.get("fecha")
         return {
             "id": str(articulo.id),
-            "tipo": (tipo_alerta or "articulo"),
+            "tipo": (tipo_alerta or "medios"),
             "titulo": articulo.titulo,
             "contenido": articulo.contenido,
             "fecha": formatear_fecha_respuesta(fecha_origen),
@@ -1369,7 +1369,7 @@ class IngestionAPIView(APIView):
         fecha_origen = red.fecha_publicacion or registro.get("fecha")
         return {
             "id": str(red.id),
-            "tipo": (tipo_alerta or "red"),
+            "tipo": (tipo_alerta or "redes"),
             "titulo": None,
             "contenido": red.contenido,
             "fecha": formatear_fecha_respuesta(fecha_origen),
