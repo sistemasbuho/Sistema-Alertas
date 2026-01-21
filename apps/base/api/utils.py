@@ -47,14 +47,30 @@ def normalizar_url(value: Any) -> Optional[str]:
 
     path = path.rstrip("/")
 
+    # Limpieza específica para URLs de Instagram
+    if "instagram.com" in netloc.lower():
+        # Convertir /reel/ y /reels/ a /p/
+        path = re.sub(r"/reels?/", "/p/", path)
+        # Eliminar parámetros de query
+        query = ""
+        fragment = ""
+    # Limpieza específica para URLs de LinkedIn
+    elif "linkedin.com" in netloc.lower():
+        # Eliminar parámetros de query (utm_source, utm_medium, rcm, etc.)
+        query = ""
+        fragment = ""
+    else:
+        query = parsed.query
+        fragment = parsed.fragment
+
     cleaned = urlunparse(
         (
             scheme,
             netloc,
             path,
             parsed.params,
-            parsed.query,
-            parsed.fragment,
+            query,
+            fragment,
         )
     )
 
