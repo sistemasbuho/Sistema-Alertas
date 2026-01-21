@@ -972,6 +972,14 @@ class IngestionAPIView(APIView):
             )
 
         autor = limpiar_texto(autor_valor)
+
+        # Limpieza adicional del autor para medios TWK y Determ medios
+        if provider_normalized in {"medios", "determ_medios"} and autor:
+            # Quitar www. del inicio
+            if autor.lower().startswith("www."):
+                autor = autor[4:]
+            # Quitar / del final
+            autor = autor.rstrip("/")
         reach_claves = ["reach"]
         if provider_normalized in {"global_news", "stakeholders"}:
             reach_claves.insert(0, "audiencia")
