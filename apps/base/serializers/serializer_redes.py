@@ -5,12 +5,58 @@ from datetime import datetime
 import pytz
 
 
+def obtener_contenido_twitter(texto):
+    """
+    Devuelve el texto hasta QT/Repost (incluyendo la palabra).
+    """
+    qt_index = texto.find("QT")
+    repost_index = texto.find("Repost")
+    indices = [i for i in [qt_index, repost_index] if i != -1]
+    if indices:
+        corte = min(indices)
+        # Agregamos la longitud de la palabra encontrada
+        if corte == qt_index:
+            corte += len("QT")
+        elif corte == repost_index:
+            corte += len("Repost")
+        return texto[:corte].strip()
+    return texto.strip()
+
+
+class DetalleEnvioEmbeddedSerializer(serializers.Serializer):
+    """Serializer optimizado para detalles de envío embebidos"""
+    id = serializers.UUIDField()
+    mensaje = serializers.SerializerMethodField()
+    estado_enviado = serializers.BooleanField()
+    estado_revisado = serializers.BooleanField()
+    inicio_envio = serializers.DateTimeField()
+    fin_envio = serializers.DateTimeField()
+    qt = serializers.SerializerMethodField()
+
+    def get_mensaje(self, obj):
+        mensaje = obj.mensaje or ""
+        red_social = self.context.get('red_social')
+
+        if red_social and red_social.nombre and red_social.nombre.lower() == "twitter":
+            return obtener_contenido_twitter(mensaje)
+        return mensaje
+
+    def get_qt(self, obj):
+        mensaje = obj.mensaje or ""
+        red_social = self.context.get('red_social')
+
+        if red_social and red_social.nombre and red_social.nombre.lower() == "twitter":
+            return "Sí" if "QT" in mensaje or "Repost" in mensaje else "No"
+        return "No"
+
+
 class RedesSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
     estado_revisado = serializers.SerializerMethodField()
     estado_enviado = serializers.SerializerMethodField()
     proyecto_keywords = serializers.SerializerMethodField()
     fecha_publicacion = serializers.DateTimeField(required=False, allow_null=True)
+    detalles_envio = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -26,32 +72,56 @@ class RedesSerializer(serializers.ModelSerializer):
         if obj.proyecto and obj.proyecto.keywords:
             # Devolver como lista (separadas por coma)
             return [kw.strip() for kw in obj.proyecto.keywords.split(",") if kw.strip()]
-        return []  
+        return []
+
+    def get_detalles_envio(self, obj):
+        """Serializa detalles de envío usando el prefetch_related optimizado"""
+        # Usar all() para aprovechar el prefetch_related, no genera query adicional
+        detalles = obj.detalles_envio.all()
+        return DetalleEnvioEmbeddedSerializer(
+            detalles,
+            many=True,
+            context={'red_social': obj.red_social}
+        ).data
 
     def get_estado_revisado(self, obj):
-        detalles = getattr(obj, "detalles_envio", None)
+        """Usa el prefetch_related para evitar queries adicionales"""
+        detalles = obj.detalles_envio.all()  # No genera query adicional gracias a prefetch_related
 
         if not detalles:
-            return None  
+            return None
 
-        if all(getattr(d, "estado_revisado", False) for d in detalles.all()):
+        # Convertir a lista para evaluar una sola vez
+        detalles_list = list(detalles)
+
+        if not detalles_list:
+            return None
+
+        if all(d.estado_revisado for d in detalles_list):
             return "Revisado"
 
-        if any(not getattr(d, "estado_revisado", False) for d in detalles.all()):
+        if any(not d.estado_revisado for d in detalles_list):
             return "Pendiente"
 
         return None
-    
+
     def get_estado_enviado(self, obj):
-        detalles = getattr(obj, "detalles_envio", None)
+        """Usa el prefetch_related para evitar queries adicionales"""
+        detalles = obj.detalles_envio.all()  # No genera query adicional gracias a prefetch_related
 
         if not detalles:
-            return None  
+            return None
 
-        if all(getattr(d, "estado_enviado", False) for d in detalles.all()):
+        # Convertir a lista para evaluar una sola vez
+        detalles_list = list(detalles)
+
+        if not detalles_list:
+            return None
+
+        if all(d.estado_enviado for d in detalles_list):
             return "Enviado"
 
-        if any(not getattr(d, "estado_enviado", False) for d in detalles.all()):
+        if any(not d.estado_enviado for d in detalles_list):
             return "Pendiente"
 
         return None
