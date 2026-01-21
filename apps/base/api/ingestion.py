@@ -1110,7 +1110,7 @@ class IngestionAPIView(APIView):
         sistema_user = getattr(self, "_usuario_sistema_cache", None)
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
 
-        logger.info(f"DEBUG: Proyecto ID={proyecto.id}, tipo_alerta={proyecto.tipo_alerta}, tipo_alerta_proyecto={tipo_alerta_proyecto}")
+        print(f"DEBUG INGESTION: Proyecto ID={proyecto.id}, tipo_alerta={proyecto.tipo_alerta}, tipo_alerta_proyecto={tipo_alerta_proyecto}")
 
         for indice, registro in enumerate(registros, start=1):
             try:
@@ -1118,7 +1118,7 @@ class IngestionAPIView(APIView):
                 tipo_normalizado = (tipo_alerta_proyecto or "medios").strip().lower()
                 es_articulo = tipo_normalizado == "medios"
 
-                logger.info(f"DEBUG: Registro {indice}: tipo_normalizado={tipo_normalizado}, es_articulo={es_articulo}")
+                print(f"DEBUG INGESTION: Registro {indice}: tipo_normalizado={tipo_normalizado}, es_articulo={es_articulo}, URL={registro.get('url')}")
 
                 if es_articulo:
                     articulo = self._crear_articulo(registro, proyecto, sistema_user)
