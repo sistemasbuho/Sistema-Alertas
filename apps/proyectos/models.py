@@ -43,9 +43,11 @@ class Proyecto(models.Model):
 
 
     proveedor = models.CharField(
-        'Nombre del proveedor', 
-        max_length=500, 
+        'Nombre del proveedor',
+        max_length=500,
         unique=False,
+        blank=True,
+        null=True,
         help_text="Nombre descriptivo del proveedor"
     )
     
