@@ -49,27 +49,22 @@ def _aplicar_estilos(
 ) -> Tuple[str, Optional[bool]]:
     """Aplica los estilos soportados por la plantilla al valor recibido."""
 
-    valor_base = valor
-    etiqueta_formateada = str(etiqueta) if etiqueta is not None else None
+    # Concatenar label + valor ANTES de aplicar formato
+    if etiqueta is not None:
+        valor_completo = f"{etiqueta}{valor}"
+    else:
+        valor_completo = valor
 
+    # Aplicar estilos al conjunto completo
     if estilo:
         if estilo.get("negrita"):
-            valor_base = f"*{valor_base}*"
-            if etiqueta_formateada:
-                etiqueta_formateada = f"*{etiqueta_formateada}*"
+            valor_completo = f"*{valor_completo}*"
         if estilo.get("inclinado"):
-            valor_base = f"_{valor_base}_"
-            if etiqueta_formateada:
-                etiqueta_formateada = f"_{etiqueta_formateada}_"
+            valor_completo = f"_{valor_completo}_"
 
     salto_linea = estilo.get("salto_linea") if estilo else None
-    valor_formateado = valor_base
 
-    if etiqueta_formateada:
-        # sin agregar ": ", solo concatenamos
-        valor_formateado = f"{etiqueta_formateada}{valor_formateado}"
-
-    return valor_formateado, salto_linea
+    return valor_completo, salto_linea
 
 
 
