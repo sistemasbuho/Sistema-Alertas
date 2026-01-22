@@ -300,6 +300,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 "contenido": mensaje_original,
                 "autor": autor,
                 "fecha": fecha_legible,
+                "ubicacion": alerta.get("ubicacion"),
                 "emojis": alerta.get("emojis"),
             }
 
@@ -641,6 +642,7 @@ class EnviarMensajeAPIView(APIView):
                 "fecha_publicacion": fecha_legible,
                 "reach" : reach,
                 "engagement" :engagement,
+                "ubicacion": alerta.get("ubicacion"),
                 "emojis": alerta.get("emojis"),
 
             }
@@ -822,6 +824,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             "fecha_publicacion": fecha_legible,
             "reach": reach,
             "engagement": engagement,
+            "ubicacion": alerta.get("ubicacion"),
             "emojis": alerta.get("emojis"),
         }
         mensaje_formateado = formatear_mensaje(

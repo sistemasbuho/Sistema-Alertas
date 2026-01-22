@@ -161,10 +161,11 @@ class TemplateConfig(BaseModel):
 
 class TemplateCampoConfig(BaseModel):
     plantilla = models.ForeignKey(
-        TemplateConfig, 
-        on_delete=models.CASCADE, 
+        TemplateConfig,
+        on_delete=models.CASCADE,
         related_name="campos"
     )
-    campo = models.CharField(max_length=100)   
+    campo = models.CharField(max_length=100)
     orden = models.PositiveIntegerField(default=0)
+    activo = models.BooleanField(default=True)
     estilo = models.JSONField(default=dict, blank=True)
