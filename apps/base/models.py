@@ -64,6 +64,7 @@ class Articulo(BaseModel):
     tipo_medio = models.CharField(verbose_name="Tipo de Medio", max_length=200, null=True, blank=True)
     reach = models.IntegerField("reach", null=True, blank=True)
     engagement = models.IntegerField(null=True, blank=True)
+    ubicacion = models.CharField(verbose_name="Ubicación", max_length=200, null=True, blank=True)
     proyecto = models.ForeignKey(
         "proyectos.Proyecto",
         on_delete=models.CASCADE,
@@ -81,11 +82,12 @@ class Redes(BaseModel):
     autor =  models.CharField(max_length=600, null=True, blank=True)
     reach = models.IntegerField(null=True, blank=True)
     engagement = models.IntegerField(null=True, blank=True)
+    ubicacion = models.CharField(verbose_name="Ubicación", max_length=200, null=True, blank=True)
     red_social = models.ForeignKey(RedesSociales, models.SET_NULL, null=True, blank=True)
     proyecto = models.ForeignKey(
-        "proyectos.Proyecto", 
-        on_delete=models.CASCADE, 
-        related_name="redes", 
+        "proyectos.Proyecto",
+        on_delete=models.CASCADE,
+        related_name="redes",
         verbose_name="Proyecto"
     )
 

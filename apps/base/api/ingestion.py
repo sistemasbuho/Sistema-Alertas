@@ -1001,6 +1001,12 @@ class IngestionAPIView(APIView):
         engagement = parsear_entero(
             self._obtener_primera_coincidencia(row, ["engagement", "engagement_rate"])
         )
+
+        # Obtener ubicación de extra_source_attributes.world_data.country
+        ubicacion = limpiar_texto(
+            row.get("extra_source_attributes.world_data.country")
+        )
+
         return {
             "tipo": "articulo",
             "titulo": titulo,
@@ -1012,6 +1018,7 @@ class IngestionAPIView(APIView):
             "reach": reach,
             "engagement": engagement,
             "url": url,
+            "ubicacion": ubicacion,
         }
 
     def _mapear_redes_twk(self, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -1021,6 +1028,12 @@ class IngestionAPIView(APIView):
             limpiar_texto(row.get("content")),
             red_social,
         )
+
+        # Obtener ubicación de extra_source_attributes.world_data.country
+        ubicacion = limpiar_texto(
+            row.get("extra_source_attributes.world_data.country")
+        )
+
         return {
             "tipo": "red",
             "contenido": contenido,
@@ -1033,6 +1046,7 @@ class IngestionAPIView(APIView):
             "engagement": parsear_entero(row.get("engagement")),
             "url": normalizar_url(row.get("url") or row.get("link")),
             "red_social": red_social,
+            "ubicacion": ubicacion,
         }
 
     def _mapear_determ(self, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -1197,6 +1211,7 @@ class IngestionAPIView(APIView):
                 "tipo_medio": registro.get("tipo_medio"),
                 "reach": registro.get("reach"),
                 "engagement": registro.get("engagement"),
+                "ubicacion": registro.get("ubicacion"),
                 "proyecto": proyecto,
             }
 
@@ -1265,6 +1280,7 @@ class IngestionAPIView(APIView):
                 "autor": registro.get("autor"),
                 "reach": registro.get("reach"),
                 "engagement": registro.get("engagement"),
+                "ubicacion": registro.get("ubicacion"),
                 "red_social": red_social_obj,
                 "proyecto": proyecto,
             }
