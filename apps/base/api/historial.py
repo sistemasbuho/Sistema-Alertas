@@ -91,14 +91,14 @@ class ExportarHistorialExcelView(View):
             encabezados = [
                 "Proyecto", "Usuario", "Tipo", "Medio/Red", "Tipo de Medio", "URL", "Fecha Publicación",
                 "Estado de Envío", "Mensaje Enviado", "Titular",
-                "Contenido", "Autor", "Reach", "Engagement", "Creado En",
+                "Contenido", "Autor", "Reach", "Engagement", "Ubicación", "Creado En",
                 "Fecha de Envío", "Tiempo de Envío"
             ]
         else:
             encabezados = [
                 "Proyecto", "Usuario", "Tipo", "Medio/Red", "Tipo de Medio", "URL", "Fecha Publicación",
                 "Estado de Envío", "Mensaje Enviado", "Titular",
-                "Contenido", "Autor", "Reach", "Engagement", "Creado En",
+                "Contenido", "Autor", "Reach", "Engagement", "Ubicación", "Creado En",
                 "Fecha de Envío", "Tiempo de Envío"
             ]
 
@@ -143,6 +143,7 @@ class ExportarHistorialExcelView(View):
                 autor = medio.autor or ""
                 reach = medio.reach if medio.reach is not None else ""
                 engagement = medio.engagement if medio.engagement is not None else ""
+                ubicacion = medio.ubicacion or ""
                 usuario_creador = medio.created_by
             elif red:
                 tipo = "Redes"
@@ -159,6 +160,7 @@ class ExportarHistorialExcelView(View):
                 autor = red.autor or ""
                 reach = red.reach if red.reach is not None else ""
                 engagement = red.engagement if red.engagement is not None else ""
+                ubicacion = red.ubicacion or ""
                 usuario_creador = red.created_by
             else:
                 tipo = ""
@@ -172,6 +174,7 @@ class ExportarHistorialExcelView(View):
                 autor = ""
                 reach = ""
                 engagement = ""
+                ubicacion = ""
                 usuario_creador = None
 
             # Determinar qué usuario mostrar
@@ -199,6 +202,7 @@ class ExportarHistorialExcelView(View):
                     autor,
                     reach,
                     engagement,
+                    ubicacion,
                     _dt_to_str(envio.created_at),
                     _dt_to_str(envio.inicio_envio),
                     tiempo_envio,
@@ -219,6 +223,7 @@ class ExportarHistorialExcelView(View):
                     autor,
                     reach,
                     engagement,
+                    ubicacion,
                     _dt_to_str(envio.created_at),
                     _dt_to_str(envio.inicio_envio),
                     tiempo_envio,

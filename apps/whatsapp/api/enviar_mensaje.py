@@ -118,6 +118,10 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
     tipo_alerta_normalizado = (tipo_alerta or "").strip().lower()
 
     for campo, conf in sorted(plantilla.items(), key=lambda x: x[1].get("orden", 0)):
+        # Si activo es False, omitir este campo (por defecto True)
+        if conf.get("activo", True) is False:
+            continue
+
         valor = alerta.get(campo)
         if valor is None or valor == "":
             valor = alerta.get("mensaje")  # fallback a 'mensaje'
