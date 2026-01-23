@@ -1,7 +1,7 @@
 import json
 from rest_framework.views import APIView
 from collections.abc import Iterable
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from rest_framework.response import Response
 from django.utils import timezone
@@ -27,8 +27,8 @@ class ImportarRedesAPIView(APIView):
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
 
-        errores = []
-        creados = []
+        errores: List[Dict[str, Any]] = []
+        creados: List[Dict[str, Any]] = []
 
         if not proyecto_id or not redes_data:
             return Response(
@@ -43,59 +43,65 @@ class ImportarRedesAPIView(APIView):
         
         usuario_creador = self._obtener_usuario_creador(request)
 
-        for data in redes_data:
-            contenido = data.get("contenido")
-            fecha_raw = data.get("fecha")
-            url = (data.get("url") or "").strip()
-            autor = data.get("autor")
-            reach = data.get("reach")
-            engagement = data.get("engagement")
-            red_social_nombre = data.get("red_social")
+        registros, duplicados_payload = self._normalizar_registros(redes_data)
+        errores.extend(duplicados_payload)
 
-            if url and Redes.objects.filter(url=url, proyecto=proyecto).exists():
-                errores.append({
-                    "url": url,
-                    "error": "La URL ya existe en este proyecto"
-                })
+        urls = [r[2] for r in registros if r[2]]
+        existentes = set(
+            Redes.objects.filter(proyecto=proyecto, url__in=urls).values_list("url", flat=True)
+        ) if urls else set()
+
+        red_sociales_map = self._mapear_redes_sociales(registros)
+
+        nuevos: List[Redes] = []
+        for contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre in registros:
+            if url and url in existentes:
+                errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
-            
-            red_social_obj = None
-            if red_social_nombre:
-                red_social_obj = RedesSociales.objects.filter(nombre=red_social_nombre).first()
 
-
-            red = Redes.objects.create(
-                contenido=contenido,
-                fecha_publicacion=self._parse_fecha(fecha_raw),
-                url=url,
-                autor=autor,
-                reach=reach,
-                engagement=engagement,
-                proyecto=proyecto,
-                red_social=red_social_obj,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
+            red_social_obj = red_sociales_map.get(red_social_nombre)
+            nuevos.append(
+                Redes(
+                    contenido=contenido,
+                    fecha_publicacion=self._parse_fecha(fecha_raw),
+                    url=url,
+                    autor=autor,
+                    reach=reach,
+                    engagement=engagement,
+                    proyecto=proyecto,
+                    red_social=red_social_obj,
+                    created_by=usuario_creador,
+                    modified_by=usuario_creador,
+                )
             )
 
-            detalle_envio = DetalleEnvio.objects.create(
-                estado_enviado=False,
-                estado_revisado=True,
-                red_social=red,
-                proyecto_id=proyecto.id,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
-            )
+        if nuevos:
+            Redes.objects.bulk_create(nuevos, batch_size=300)
 
-            creados.append({
-                "id": red.id,
-                "url": red.url,
-                "contenido": red.contenido,
-                "autor": red.autor,
-                "fecha": red.fecha_publicacion.isoformat() if red.fecha_publicacion else None,
-                "reach": red.reach,
-                "engagement": red.engagement,
-                "red_social": red_social_nombre,
-            })
+            detalles = [
+                DetalleEnvio(
+                    estado_enviado=False,
+                    estado_revisado=True,
+                    red_social=red,
+                    proyecto_id=proyecto.id,
+                    created_by=usuario_creador,
+                    modified_by=usuario_creador,
+                )
+                for red in nuevos
+            ]
+            DetalleEnvio.objects.bulk_create(detalles, batch_size=300)
+
+            for red in nuevos:
+                creados.append({
+                    "id": red.id,
+                    "url": red.url,
+                    "contenido": red.contenido,
+                    "autor": red.autor,
+                    "fecha": red.fecha_publicacion.isoformat() if red.fecha_publicacion else None,
+                    "reach": red.reach,
+                    "engagement": red.engagement,
+                    "red_social": red.red_social.nombre if red.red_social else None,
+                })
 
         if proyecto.tipo_envio == "automatico" and creados:
             alertas = [
@@ -132,6 +138,50 @@ class ImportarRedesAPIView(APIView):
     def _parse_fecha(self, fecha_raw):
         fecha = parsear_datetime(fecha_raw)
         return fecha or timezone.now()
+
+    def _normalizar_registros(
+        self, redes_data: List[Dict[str, Any]]
+    ) -> Tuple[
+        List[Tuple[Optional[str], Any, str, Optional[str], Any, Any, Optional[str]]],
+        List[Dict[str, Any]],
+    ]:
+        registros = []
+        errores = []
+        vistos = set()
+
+        for data in redes_data:
+            contenido = data.get("contenido")
+            fecha_raw = data.get("fecha")
+            url = (data.get("url") or "").strip()
+            autor = data.get("autor")
+            reach = data.get("reach")
+            engagement = data.get("engagement")
+            red_social_nombre = data.get("red_social")
+
+            if url:
+                if url in vistos:
+                    errores.append({"url": url, "error": "URL duplicada en el payload"})
+                    continue
+                vistos.add(url)
+
+            registros.append(
+                (contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre)
+            )
+
+        return registros, errores
+
+    def _mapear_redes_sociales(
+        self,
+        registros: List[Tuple[Optional[str], Any, str, Optional[str], Any, Any, Optional[str]]],
+    ) -> Dict[Optional[str], Optional[RedesSociales]]:
+        nombres = {r[6] for r in registros if r[6]}
+        if not nombres:
+            return {}
+        mapa = {
+            rs.nombre: rs
+            for rs in RedesSociales.objects.filter(nombre__in=nombres)
+        }
+        return mapa
 
     def _extraer_payload(self, request) -> Dict[str, Any]:
         data: Any = request.data
@@ -259,4 +309,3 @@ class ImportarRedesAPIView(APIView):
                 return value
 
         return value
-

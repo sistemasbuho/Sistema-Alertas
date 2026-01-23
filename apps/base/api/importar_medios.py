@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from rest_framework.response import Response
 from apps.base.models import Articulo, DetalleEnvio
@@ -26,8 +26,8 @@ class ImportarArticuloAPIView(APIView):
         if isinstance(proyecto_id, list):
             proyecto_id = proyecto_id[0]
 
-        errores = []
-        creados = []
+        errores: List[Dict[str, Any]] = []
+        creados: List[Dict[str, Any]] = []
 
         if not proyecto_id or not articulos_data:
             return Response(
@@ -42,52 +42,64 @@ class ImportarArticuloAPIView(APIView):
         usuario_creador = self._obtener_usuario_creador(request)
         print('lega aqui')
 
-        for data in articulos_data:
-            titulo = data.get("titulo")
-            contenido = data.get("contenido")
-            fecha_raw = data.get("fecha")
-            url = (data.get("url") or "").strip()
-            autor = data.get("autor")
-            reach = data.get("reach")
-            engagement = data.get("engagement")
+        registros, duplicados_payload = self._normalizar_registros(articulos_data)
+        errores.extend(duplicados_payload)
 
-            if url and Articulo.objects.filter(url=url, proyecto=proyecto).exists():
+        urls = [r[3] for r in registros if r[3]]
+        existentes = set(
+            Articulo.objects.filter(proyecto=proyecto, url__in=urls).values_list("url", flat=True)
+        ) if urls else set()
+
+        nuevos: List[Articulo] = []
+        aceptados: List[Tuple[Optional[str], Optional[str], Any, str, Optional[str], Any, Any]] = []
+        for titulo, contenido, fecha_raw, url, autor, reach, engagement in registros:
+            if url and url in existentes:
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
 
-            # Crear artículo asignando created_by al usuario correspondiente
-            articulo = Articulo.objects.create(
-                titulo=titulo,
-                contenido=contenido,
-                url=url,
-                fecha_publicacion=self._parse_fecha(fecha_raw),
-                autor=autor,
-                reach=reach,
-                proyecto=proyecto,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
+            nuevos.append(
+                Articulo(
+                    titulo=titulo,
+                    contenido=contenido,
+                    url=url,
+                    fecha_publicacion=self._parse_fecha(fecha_raw),
+                    autor=autor,
+                    reach=reach,
+                    proyecto=proyecto,
+                    created_by=usuario_creador,
+                    modified_by=usuario_creador,
+                )
             )
+            aceptados.append((titulo, contenido, fecha_raw, url, autor, reach, engagement))
 
-            # Crear detalle de envío
-            detalle_envio = DetalleEnvio.objects.create(
-                estado_enviado=False,
-                estado_revisado=True,
-                medio=articulo,
-                proyecto_id=proyecto.id,
-                created_by=usuario_creador,
-                modified_by=usuario_creador,
-            )
+        if nuevos:
+            Articulo.objects.bulk_create(nuevos, batch_size=300)
 
-            creados.append({
-                "id": articulo.id,
-                "titulo": articulo.titulo,
-                "url": articulo.url,
-                "contenido": articulo.contenido,
-                "autor": articulo.autor,
-                "fecha": articulo.fecha_publicacion.isoformat() if articulo.fecha_publicacion else None,
-                "reach": articulo.reach,
-                "engagement": engagement,
-            })
+            detalles = [
+                DetalleEnvio(
+                    estado_enviado=False,
+                    estado_revisado=True,
+                    medio=articulo,
+                    proyecto_id=proyecto.id,
+                    created_by=usuario_creador,
+                    modified_by=usuario_creador,
+                )
+                for articulo in nuevos
+            ]
+            DetalleEnvio.objects.bulk_create(detalles, batch_size=300)
+
+            for articulo, registro in zip(nuevos, aceptados):
+                engagement = registro[6]
+                creados.append({
+                    "id": articulo.id,
+                    "titulo": articulo.titulo,
+                    "url": articulo.url,
+                    "contenido": articulo.contenido,
+                    "autor": articulo.autor,
+                    "fecha": articulo.fecha_publicacion.isoformat() if articulo.fecha_publicacion else None,
+                    "reach": articulo.reach,
+                    "engagement": engagement,
+                })
 
         if proyecto.tipo_envio == "automatico" and creados:
             alertas = [
@@ -142,6 +154,35 @@ class ImportarArticuloAPIView(APIView):
     def _parse_fecha(self, fecha_raw):
         fecha = parsear_datetime(fecha_raw)
         return fecha or timezone.now()
+
+    def _normalizar_registros(
+        self, articulos_data: List[Dict[str, Any]]
+    ) -> Tuple[
+        List[Tuple[Optional[str], Optional[str], Any, str, Optional[str], Any, Any]],
+        List[Dict[str, Any]],
+    ]:
+        registros = []
+        errores = []
+        vistos = set()
+
+        for data in articulos_data:
+            titulo = data.get("titulo")
+            contenido = data.get("contenido")
+            fecha_raw = data.get("fecha")
+            url = (data.get("url") or "").strip()
+            autor = data.get("autor")
+            reach = data.get("reach")
+            engagement = data.get("engagement")
+
+            if url:
+                if url in vistos:
+                    errores.append({"url": url, "error": "URL duplicada en el payload"})
+                    continue
+                vistos.add(url)
+
+            registros.append((titulo, contenido, fecha_raw, url, autor, reach, engagement))
+
+        return registros, errores
 
     def _obtener_usuario_creador(self, request):
         UserModel = get_user_model()
