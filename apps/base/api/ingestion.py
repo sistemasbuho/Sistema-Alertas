@@ -159,7 +159,11 @@ class IngestionAPIView(APIView):
         if error_response:
             return error_response
 
-        registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
+        # No aplicar criterios de aceptación para ingesta manual
+        if proveedor == "manual":
+            registros_filtrados = registros_estandar
+        else:
+            registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
 
         if not registros_filtrados:
             respuesta = self._construir_respuesta_sin_registros(
