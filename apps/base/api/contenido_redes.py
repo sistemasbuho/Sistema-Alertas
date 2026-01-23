@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from typing import Optional
 
 _TWITTER_NAMES = {"twitter", "x", "http://twitter.com/"}
@@ -10,12 +11,15 @@ def ajustar_contenido_red_social(contenido: Optional[str], red_social: Optional[
     if not contenido:
         return contenido
 
+    # Reemplazar saltos de línea con espacios
+    texto_limpio = re.sub(r"[\r\n\v\f]+", " ", contenido)
+    texto_limpio = re.sub(r"\s+", " ", texto_limpio).strip()
+
     red = (red_social or "").strip().lower()
     if red not in _TWITTER_NAMES:
-        return contenido.strip()
-    
-    texto = contenido
-    texto_normalizado = texto.upper()
+        return texto_limpio
+
+    texto_normalizado = texto_limpio.upper()
     cortes = []
 
     for palabra in _KEYWORDS:
@@ -24,9 +28,9 @@ def ajustar_contenido_red_social(contenido: Optional[str], red_social: Optional[
             cortes.append((indice, len(palabra)))
 
     if not cortes:
-        return texto.strip()
+        return texto_limpio
 
     indice, longitud = min(cortes, key=lambda item: item[0])
-    recorte = texto[:indice + longitud].strip()
-    
+    recorte = texto_limpio[:indice + longitud].strip()
+
     return recorte
