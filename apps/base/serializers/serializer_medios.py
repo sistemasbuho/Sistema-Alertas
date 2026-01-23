@@ -79,6 +79,9 @@ class MediosSerializer(serializers.ModelSerializer):
 
         return internal_data
 
+    def validate_contenido(self, value):
+        return limpiar_texto(value)
+
     def validate(self, data):
         """
         Validar que no se repita la URL en el mismo proyecto.
