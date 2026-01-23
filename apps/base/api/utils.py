@@ -15,6 +15,8 @@ def limpiar_texto(value: Any) -> Optional[str]:
     if value in (None, ""):
         return None
     texto = str(value).strip()
+    # Reemplazar saltos de línea con espacios
+    texto = re.sub(r"[\r\n\v\f]+", " ", texto)
     # Eliminar etiquetas <br>, <br/>, <br /> y otras variantes
     texto = re.sub(r"<br\s*/?>", " ", texto, flags=re.IGNORECASE)
     texto = re.sub(r"<[^>]+>", " ", texto)
