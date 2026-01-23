@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.base.models import Articulo
 from apps.base.models import DetalleEnvio, Articulo, Redes, TemplateConfig
+from apps.base.api.utils import limpiar_texto
 from django.utils import timezone
 from datetime import datetime
 import pytz
@@ -59,6 +60,7 @@ class MediosSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         """
         Procesar la fecha_publicacion antes de la validación para mantener el timezone correcto.
+        También aplica limpieza de texto a los campos de texto.
         """
         internal_data = super().to_internal_value(data)
 
@@ -68,6 +70,12 @@ class MediosSerializer(serializers.ModelSerializer):
             # Si la fecha es naive (sin timezone), asumimos que ya está en UTC
             if timezone.is_naive(fecha):
                 internal_data['fecha_publicacion'] = timezone.make_aware(fecha, pytz.UTC)
+
+        # Limpiar campos de texto
+        campos_texto = ['titulo', 'contenido', 'autor', 'fuente']
+        for campo in campos_texto:
+            if campo in internal_data:
+                internal_data[campo] = limpiar_texto(internal_data[campo])
 
         return internal_data
 

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.base.models import Redes
+from apps.base.api.utils import limpiar_texto
 from django.utils import timezone
 from datetime import datetime
 import pytz
@@ -138,6 +139,10 @@ class RedesSerializer(serializers.ModelSerializer):
             # Si la fecha es naive (sin timezone), asumimos que ya está en UTC
             if timezone.is_naive(fecha):
                 internal_data['fecha_publicacion'] = timezone.make_aware(fecha, pytz.UTC)
+
+        # Limpiar campos de texto
+        if "contenido" in internal_data:
+            internal_data["contenido"] = limpiar_texto(internal_data["contenido"])
 
         return internal_data
 
