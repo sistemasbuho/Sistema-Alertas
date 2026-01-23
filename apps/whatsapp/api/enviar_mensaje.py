@@ -107,7 +107,36 @@ def _normalizar_emojis(emojis) -> str:
     return str(emojis).strip()
 
 
-def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None):
+def _resaltar_keywords(texto: str, keywords: list) -> str:
+    """
+    Resalta las keywords en negrita dentro del texto.
+    Búsqueda case-insensitive de palabras completas.
+    """
+    if not texto or not keywords:
+        return texto
+
+    import re
+
+    resultado = texto
+    for keyword in keywords:
+        if not keyword:
+            continue
+
+        # Escapar caracteres especiales de regex
+        keyword_escaped = re.escape(keyword.strip())
+
+        # Buscar palabra completa, case-insensitive
+        # \b = word boundary (límite de palabra)
+        pattern = r'\b(' + keyword_escaped + r')\b'
+
+        # Reemplazar con negrita (*keyword*)
+        # Usar lambda para preservar el case original
+        resultado = re.sub(pattern, r'*\1*', resultado, flags=re.IGNORECASE)
+
+    return resultado
+
+
+def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=None, keywords=None):
     """
     Genera un mensaje formateado aplicando la plantilla de estilos y orden.
     Funciona para alertas de medios o redes.
@@ -130,6 +159,10 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
             continue
 
         valor_str = str(valor)
+
+        # Resaltar keywords en campos de texto (contenido, titulo)
+        if keywords and campo in ["contenido", "titulo"]:
+            valor_str = _resaltar_keywords(valor_str, keywords)
 
         estilo = conf.get("estilo", {}) or {}
         valor_formateado, salto_linea = _aplicar_estilos(
@@ -278,6 +311,9 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
             plantilla = template_config.config_campos
             plantilla_nombre = template_config.nombre
 
+        # Obtener keywords del proyecto
+        keywords = proyecto.get_keywords_list() if hasattr(proyecto, "get_keywords_list") else []
+
         headers = {
             "Authorization": f"Bearer {self.access_key}",
             "Content-Type": "application/json",
@@ -314,6 +350,7 @@ class CapturaAlertasMediosAPIView(BaseCapturaAlertasAPIView):
                 plantilla,
                 nombre_plantilla=plantilla_nombre,
                 tipo_alerta=tipo_alerta,
+                keywords=keywords,
             )
 
             # Crear o actualizar detalle de envío
@@ -428,13 +465,16 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
             return Response({"error": "Se requieren 'proyecto_id' y 'alertas'"}, status=400)
 
         proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-        
+
         plantilla_mensaje = {}
         plantilla_nombre = None
         template_config = TemplateConfig.objects.filter(proyecto=proyecto_id).first()
         if template_config:
             plantilla_mensaje = template_config.config_campos
             plantilla_nombre = template_config.nombre
+
+        # Obtener keywords del proyecto
+        keywords = proyecto.get_keywords_list() if hasattr(proyecto, "get_keywords_list") else []
 
         procesadas = []
         duplicadas = []
@@ -479,6 +519,7 @@ class CapturaAlertasRedesAPIView(BaseCapturaAlertasAPIView):
                     plantilla_mensaje,
                     nombre_plantilla=plantilla_nombre,
                     tipo_alerta="redes",
+                    keywords=keywords,
                 )
 
         return Response({
@@ -591,6 +632,9 @@ class EnviarMensajeAPIView(APIView):
             plantilla = template_config.config_campos
             plantilla_nombre = template_config.nombre
 
+        # Obtener keywords del proyecto
+        keywords = proyecto.get_keywords_list() if hasattr(proyecto, "get_keywords_list") else []
+
         headers = {
             "Authorization": f"Bearer {self.access_key}",
             "Content-Type": "application/json",
@@ -656,6 +700,7 @@ class EnviarMensajeAPIView(APIView):
                 plantilla,
                 nombre_plantilla=plantilla_nombre,
                 tipo_alerta=tipo_alerta,
+                keywords=keywords,
             )
             filtros = {"proyecto_id": proyecto_id}
             if tipo_alerta == "medios":
@@ -793,6 +838,9 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
         plantilla = template_config.config_campos
         plantilla_nombre = template_config.nombre
 
+    # Obtener keywords del proyecto
+    keywords = proyecto.get_keywords_list() if hasattr(proyecto, "get_keywords_list") else []
+
     User = get_user_model()
     usuario = User.objects.get(id=usuario_id)
 
@@ -836,6 +884,7 @@ def enviar_alertas_automatico(proyecto_id, tipo_alerta, alertas, usuario_id=2):
             plantilla,
             nombre_plantilla=plantilla_nombre,
             tipo_alerta=tipo_alerta,
+            keywords=keywords,
         )
 
         # Crear o actualizar detalle de envío

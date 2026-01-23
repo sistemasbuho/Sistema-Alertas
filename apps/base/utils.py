@@ -41,7 +41,12 @@ def generar_plantilla_desde_modelo(
         if field.name in campos_excluir:
             continue
 
-        campos_config[field.name] = {"orden": indice, "estilo": {}}
+        campos_config[field.name] = {
+            "label": "",
+            "orden": indice,
+            "estilo": {},
+            "activo": True
+        }
         indice += 1
 
     return campos_config
