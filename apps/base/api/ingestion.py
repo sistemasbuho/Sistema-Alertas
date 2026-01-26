@@ -1135,31 +1135,39 @@ class IngestionAPIView(APIView):
         descartados = 0
         sistema_user = getattr(self, "_usuario_sistema_cache", None)
         tipo_alerta_proyecto = self._obtener_tipo_alerta_proyecto(proyecto)
+        tipo_normalizado = (tipo_alerta_proyecto or "medios").strip().lower()
+        es_articulo = tipo_normalizado == "medios"
 
+        # Crear caché de URLs existentes (una sola query)
+        if es_articulo:
+            urls_existentes = self._construir_cache_urls(Articulo, proyecto)
+        else:
+            urls_existentes = self._construir_cache_urls(Redes, proyecto)
+
+        # Separar registros válidos de duplicados
+        registros_a_crear = []
         for indice, registro in enumerate(registros, start=1):
-            try:
-                # Determinar tipo basándose en tipo_alerta del proyecto
-                tipo_normalizado = (tipo_alerta_proyecto or "medios").strip().lower()
-                es_articulo = tipo_normalizado == "medios"
+            url = registro.get("url") or ""
+            clave_url = self._construir_clave_url(url)
 
-                if es_articulo:
-                    articulo = self._crear_articulo(registro, proyecto, sistema_user)
-                    listado.append(
-                        self._serializar_articulo(articulo, registro, tipo_alerta_proyecto)
-                    )
-                else:
-                    red = self._crear_red_social(registro, proyecto)
-                    listado.append(
-                        self._serializar_red(red, registro, tipo_alerta_proyecto)
-                    )
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.exception("Error procesando fila %s", indice)
-                mensaje_error = str(exc)
-                if isinstance(exc, ValueError) and "ya existe" in mensaje_error.lower():
-                    duplicados += 1
-                else:
-                    descartados += 1
-                errores.append({"fila": indice, "error": mensaje_error})
+            if clave_url and clave_url in urls_existentes:
+                duplicados += 1
+                errores.append({"fila": indice, "error": "La URL ya existe para este proyecto"})
+                continue
+
+            registros_a_crear.append((indice, registro))
+
+        # Bulk create con transaction
+        with transaction.atomic():
+            if es_articulo:
+                resultado = self._bulk_crear_articulos(registros_a_crear, proyecto, sistema_user, tipo_alerta_proyecto)
+            else:
+                resultado = self._bulk_crear_redes(registros_a_crear, proyecto, tipo_alerta_proyecto)
+
+            listado = resultado["listado"]
+            errores.extend(resultado["errores"])
+            descartados = resultado["descartados"]
+
         return {
             "listado": listado,
             "errores": errores,
@@ -1240,6 +1248,83 @@ class IngestionAPIView(APIView):
             )
         return articulo
 
+    def _bulk_crear_articulos(
+        self,
+        registros_con_indice: List[Tuple[int, Dict[str, Any]]],
+        proyecto: Proyecto,
+        sistema_user,
+        tipo_alerta_proyecto: str,
+    ) -> Dict[str, Any]:
+        """Crea múltiples artículos usando bulk_create para mejor rendimiento."""
+        listado = []
+        errores = []
+        descartados = 0
+
+        articulos_a_crear = []
+        registros_mapa = {}  # Mapeo de URL a registro para crear DetalleEnvio después
+
+        for indice, registro in registros_con_indice:
+            try:
+                kwargs: Dict[str, Any] = {
+                    "titulo": registro.get("titulo"),
+                    "contenido": registro.get("contenido"),
+                    "url": registro.get("url") or "",
+                    "fecha_publicacion": registro.get("fecha") or timezone.now(),
+                    "autor": registro.get("autor"),
+                    "fuente": registro.get("fuente"),
+                    "tipo_medio": registro.get("tipo_medio"),
+                    "reach": registro.get("reach"),
+                    "engagement": registro.get("engagement"),
+                    "ubicacion": registro.get("ubicacion"),
+                    "proyecto": proyecto,
+                }
+
+                if sistema_user:
+                    kwargs["created_by"] = sistema_user
+                    kwargs["modified_by"] = sistema_user
+
+                articulo = Articulo(**kwargs)
+                articulos_a_crear.append(articulo)
+                registros_mapa[kwargs["url"]] = (registro, tipo_alerta_proyecto)
+
+            except Exception as exc:
+                logger.exception("Error preparando artículo en fila %s", indice)
+                descartados += 1
+                errores.append({"fila": indice, "error": str(exc)})
+
+        # Bulk create de artículos
+        if articulos_a_crear:
+            articulos_creados = Articulo.objects.bulk_create(articulos_a_crear, ignore_conflicts=True)
+
+            # Crear DetalleEnvio para cada artículo
+            detalles_a_crear = []
+            for articulo in articulos_creados:
+                if articulo.url in registros_mapa:
+                    registro, tipo_alerta = registros_mapa[articulo.url]
+
+                    detalle = DetalleEnvio(
+                        proyecto=proyecto,
+                        medio=articulo,
+                        estado_enviado=False,
+                        estado_revisado=True,
+                        created_by=sistema_user,
+                        modified_by=sistema_user,
+                    )
+                    detalles_a_crear.append(detalle)
+
+                    # Serializar para respuesta
+                    listado.append(self._serializar_articulo(articulo, registro, tipo_alerta))
+
+            # Bulk create de DetalleEnvio
+            if detalles_a_crear:
+                DetalleEnvio.objects.bulk_create(detalles_a_crear, ignore_conflicts=True)
+
+        return {
+            "listado": listado,
+            "errores": errores,
+            "descartados": descartados,
+        }
+
     def _crear_red_social(self, registro: Dict[str, Any], proyecto: Proyecto) -> Redes:
         with transaction.atomic():
             url = registro.get("url") or ""
@@ -1312,6 +1397,121 @@ class IngestionAPIView(APIView):
                 usuario=usuario_creador,
             )
         return red
+
+    def _bulk_crear_redes(
+        self,
+        registros_con_indice: List[Tuple[int, Dict[str, Any]]],
+        proyecto: Proyecto,
+        tipo_alerta_proyecto: str,
+    ) -> Dict[str, Any]:
+        """Crea múltiples redes sociales usando bulk_create para mejor rendimiento."""
+        listado = []
+        errores = []
+        descartados = 0
+        usuario_creador = getattr(self, "_usuario_sistema_cache", None)
+
+        redes_a_crear = []
+        registros_mapa = {}  # Mapeo de URL a registro
+
+        for indice, registro in registros_con_indice:
+            try:
+                red_social_obj = None
+                nombre_red = registro.get("red_social")
+                if nombre_red:
+                    domain_parse = urlparse(nombre_red)
+                    domain_candidate = (domain_parse.netloc or domain_parse.path or "").lower()
+                    if domain_candidate.startswith("www."):
+                        domain_candidate = domain_candidate[4:]
+
+                    candidate_names: List[str] = []
+                    if domain_candidate:
+                        for dominio, nombre in DOMINIOS_REDES_SOCIALES.items():
+                            dominio_normalizado = dominio.lower()
+                            if dominio_normalizado.startswith("www."):
+                                dominio_normalizado = dominio_normalizado[4:]
+                            dominio_base = dominio_normalizado.split(".")[0]
+                            if dominio_normalizado and dominio_normalizado in domain_candidate:
+                                candidate_names.append(nombre)
+                            elif dominio_base and dominio_base in domain_candidate:
+                                candidate_names.append(nombre)
+
+                        candidate_names.extend(
+                            [
+                                domain_candidate,
+                                domain_candidate.split(".")[0] if domain_candidate else "",
+                                str(nombre_red).strip(),
+                            ]
+                        )
+
+                        for nombre_candidato in dict.fromkeys(
+                            valor for valor in candidate_names if valor
+                        ):
+                            red_social_obj = RedesSociales.objects.filter(
+                                nombre__iexact=nombre_candidato
+                            ).first()
+                            if red_social_obj:
+                                break
+
+                # Si contenido está vacío, usar titulo como fallback
+                contenido = registro.get("contenido") or registro.get("titulo") or ""
+
+                kwargs: Dict[str, Any] = {
+                    "contenido": contenido,
+                    "fecha_publicacion": registro.get("fecha") or timezone.now(),
+                    "url": registro.get("url") or "",
+                    "autor": registro.get("autor"),
+                    "reach": registro.get("reach"),
+                    "engagement": registro.get("engagement"),
+                    "ubicacion": registro.get("ubicacion"),
+                    "red_social": red_social_obj,
+                    "proyecto": proyecto,
+                }
+
+                if usuario_creador:
+                    kwargs["created_by"] = usuario_creador
+                    kwargs["modified_by"] = usuario_creador
+
+                red = Redes(**kwargs)
+                redes_a_crear.append(red)
+                registros_mapa[kwargs["url"]] = (registro, tipo_alerta_proyecto)
+
+            except Exception as exc:
+                logger.exception("Error preparando red social en fila %s", indice)
+                descartados += 1
+                errores.append({"fila": indice, "error": str(exc)})
+
+        # Bulk create de redes
+        if redes_a_crear:
+            redes_creadas = Redes.objects.bulk_create(redes_a_crear, ignore_conflicts=True)
+
+            # Crear DetalleEnvio para cada red
+            detalles_a_crear = []
+            for red in redes_creadas:
+                if red.url in registros_mapa:
+                    registro, tipo_alerta = registros_mapa[red.url]
+
+                    detalle = DetalleEnvio(
+                        proyecto=proyecto,
+                        red_social=red,
+                        estado_enviado=False,
+                        estado_revisado=True,
+                        created_by=usuario_creador,
+                        modified_by=usuario_creador,
+                    )
+                    detalles_a_crear.append(detalle)
+
+                    # Serializar para respuesta
+                    listado.append(self._serializar_red(red, registro, tipo_alerta))
+
+            # Bulk create de DetalleEnvio
+            if detalles_a_crear:
+                DetalleEnvio.objects.bulk_create(detalles_a_crear, ignore_conflicts=True)
+
+        return {
+            "listado": listado,
+            "errores": errores,
+            "descartados": descartados,
+        }
 
     def _procesar_envio_automatico(
         self,
@@ -1455,6 +1655,16 @@ class IngestionAPIView(APIView):
     # ------------------------------------------------------------------
     # Validación de URLs por proyecto
     # ------------------------------------------------------------------
+    def _construir_cache_urls(self, model, proyecto: Proyecto) -> set:
+        """Construye un set con las claves normalizadas de URLs existentes."""
+        urls_existentes = model.objects.filter(proyecto=proyecto).values_list("url", flat=True)
+        cache = set()
+        for url in urls_existentes:
+            clave = self._construir_clave_url(url)
+            if clave:
+                cache.add(clave)
+        return cache
+
     def _es_url_duplicada_por_proyecto(self, model, proyecto: Proyecto, url: Optional[str]) -> bool:
         if not url:
             return False
