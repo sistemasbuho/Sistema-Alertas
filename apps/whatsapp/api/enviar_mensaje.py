@@ -111,6 +111,8 @@ def _resaltar_keywords(texto: str, keywords: list) -> str:
     """
     Resalta las keywords en negrita dentro del texto.
     Búsqueda case-insensitive de palabras completas.
+    Soporta keywords con @, # y otros caracteres especiales.
+    Si la keyword empieza con @ o #, resalta tanto la versión con signo como sin signo.
     """
     if not texto or not keywords:
         return texto
@@ -122,16 +124,26 @@ def _resaltar_keywords(texto: str, keywords: list) -> str:
         if not keyword:
             continue
 
-        # Escapar caracteres especiales de regex
-        keyword_escaped = re.escape(keyword.strip())
+        keyword = keyword.strip()
 
-        # Buscar palabra completa, case-insensitive
-        # \b = word boundary (límite de palabra)
-        pattern = r'\b(' + keyword_escaped + r')\b'
+        # Si la keyword empieza con @ o #, buscar ambas versiones
+        if keyword.startswith('@') or keyword.startswith('#'):
+            # Versión con el signo (@usuario o #hashtag)
+            keyword_con_signo = re.escape(keyword)
+            pattern_con_signo = r'(?<!\S)(' + keyword_con_signo + r')(?!\S)'
+            resultado = re.sub(pattern_con_signo, r'*\1*', resultado, flags=re.IGNORECASE)
 
-        # Reemplazar con negrita (*keyword*)
-        # Usar lambda para preservar el case original
-        resultado = re.sub(pattern, r'*\1*', resultado, flags=re.IGNORECASE)
+            # Versión sin el signo (usuario o hashtag)
+            keyword_sin_signo = keyword[1:]  # Remover el primer caracter (@ o #)
+            keyword_sin_signo_escaped = re.escape(keyword_sin_signo)
+            # Usar \b para la versión sin signo ya que no tiene caracteres especiales
+            pattern_sin_signo = r'\b(' + keyword_sin_signo_escaped + r')\b'
+            resultado = re.sub(pattern_sin_signo, r'*\1*', resultado, flags=re.IGNORECASE)
+        else:
+            # Para keywords normales sin @ o #
+            keyword_escaped = re.escape(keyword)
+            pattern = r'\b(' + keyword_escaped + r')\b'
+            resultado = re.sub(pattern, r'*\1*', resultado, flags=re.IGNORECASE)
 
     return resultado
 
