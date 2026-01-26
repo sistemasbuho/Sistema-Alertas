@@ -1041,6 +1041,7 @@ class IngestionAPIView(APIView):
         return {
             "tipo": "red",
             "contenido": contenido,
+            "titulo": limpiar_texto(row.get("title")),
             "fecha": fecha,
             "autor": limpiar_texto(
                 row.get("extra_author_attributes.short_name")
@@ -1063,6 +1064,7 @@ class IngestionAPIView(APIView):
         return {
             "tipo": "red",
             "contenido": contenido,
+            "titulo": limpiar_texto(row.get("title")),
             "fecha": fecha,
             "autor": limpiar_texto(
                 row.get("author")
@@ -1277,8 +1279,11 @@ class IngestionAPIView(APIView):
 
             usuario_creador = getattr(self, "_usuario_sistema_cache", None)
 
+            # Si contenido está vacío, usar titulo como fallback
+            contenido = registro.get("contenido") or registro.get("titulo") or ""
+
             kwargs: Dict[str, Any] = {
-                "contenido": registro.get("contenido"),
+                "contenido": contenido,
                 "fecha_publicacion": registro.get("fecha") or timezone.now(),
                 "url": url,
                 "autor": registro.get("autor"),
