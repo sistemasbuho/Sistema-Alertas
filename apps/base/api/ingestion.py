@@ -162,14 +162,18 @@ class IngestionAPIView(APIView):
         # No aplicar criterios de aceptación para ingesta manual
         if proveedor == "manual":
             registros_filtrados = registros_estandar
+            descartados_por_criterios = 0
         else:
+            total_antes_filtro = len(registros_estandar)
             registros_filtrados = self._filtrar_por_criterios(registros_estandar, proyecto)
+            descartados_por_criterios = total_antes_filtro - len(registros_filtrados)
 
         if not registros_filtrados:
             respuesta = self._construir_respuesta_sin_registros(
                 proveedor,
                 proyecto,
             )
+            respuesta["descartados"] = descartados_por_criterios
             self._notificar_ruta_externa(respuesta)
             return Response(respuesta, status=405)
 
@@ -181,6 +185,8 @@ class IngestionAPIView(APIView):
             proveedor,
             proyecto,
         )
+        # Sumar descartados por criterios + descartados por errores de persistencia
+        respuesta["descartados"] = descartados_por_criterios + resultado.get("descartados", 0)
 
         self._procesar_envio_automatico(proyecto, respuesta)
         self._notificar_ruta_externa(respuesta)
