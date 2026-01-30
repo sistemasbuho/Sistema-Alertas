@@ -113,25 +113,11 @@ def _resaltar_keywords(texto: str, keywords: list) -> str:
     Búsqueda case-insensitive de palabras completas.
     Soporta keywords con @, # y otros caracteres especiales.
     Si la keyword empieza con @ o #, resalta tanto la versión con signo como sin signo.
-    Evita dañar formato existente (negritas, cursivas).
     """
     if not texto or not keywords:
         return texto
 
     import re
-
-    def _esta_dentro_formato(texto: str, inicio: int, fin: int) -> bool:
-        """Verifica si un rango de texto está dentro de un bloque con formato (* o _)."""
-        # Buscar todos los bloques de formato
-        bloques_negrita = [(m.start(), m.end()) for m in re.finditer(r'\*[^*]+\*', texto)]
-        bloques_cursiva = [(m.start(), m.end()) for m in re.finditer(r'_[^_]+_', texto)]
-        bloques = bloques_negrita + bloques_cursiva
-
-        # Verificar si el rango está completamente dentro de algún bloque
-        for bloque_inicio, bloque_fin in bloques:
-            if bloque_inicio < inicio and fin < bloque_fin:
-                return True
-        return False
 
     resultado = texto
     for keyword in keywords:
@@ -145,52 +131,19 @@ def _resaltar_keywords(texto: str, keywords: list) -> str:
             # Versión con el signo (@usuario o #hashtag)
             keyword_con_signo = re.escape(keyword)
             pattern_con_signo = r'(?<!\S)(' + keyword_con_signo + r')(?!\S)'
-
-            # Buscar todas las coincidencias y solo resaltar las que no están formateadas
-            matches = list(re.finditer(pattern_con_signo, resultado, flags=re.IGNORECASE))
-            offset = 0
-            for match in matches:
-                inicio = match.start() + offset
-                fin = match.end() + offset
-                if not _esta_dentro_formato(resultado, inicio, fin):
-                    texto_antes = resultado[:inicio]
-                    texto_match = resultado[inicio:fin]
-                    texto_despues = resultado[fin:]
-                    resultado = texto_antes + '*' + texto_match + '*' + texto_despues
-                    offset += 2  # Se agregaron 2 asteriscos
+            resultado = re.sub(pattern_con_signo, r'*\1*', resultado, flags=re.IGNORECASE)
 
             # Versión sin el signo (usuario o hashtag)
-            keyword_sin_signo = keyword[1:]
+            keyword_sin_signo = keyword[1:]  # Remover el primer caracter (@ o #)
             keyword_sin_signo_escaped = re.escape(keyword_sin_signo)
+            # Usar \b para la versión sin signo ya que no tiene caracteres especiales
             pattern_sin_signo = r'\b(' + keyword_sin_signo_escaped + r')\b'
-
-            matches = list(re.finditer(pattern_sin_signo, resultado, flags=re.IGNORECASE))
-            offset = 0
-            for match in matches:
-                inicio = match.start() + offset
-                fin = match.end() + offset
-                if not _esta_dentro_formato(resultado, inicio, fin):
-                    texto_antes = resultado[:inicio]
-                    texto_match = resultado[inicio:fin]
-                    texto_despues = resultado[fin:]
-                    resultado = texto_antes + '*' + texto_match + '*' + texto_despues
-                    offset += 2
+            resultado = re.sub(pattern_sin_signo, r'*\1*', resultado, flags=re.IGNORECASE)
         else:
             # Para keywords normales sin @ o #
             keyword_escaped = re.escape(keyword)
             pattern = r'\b(' + keyword_escaped + r')\b'
-
-            matches = list(re.finditer(pattern, resultado, flags=re.IGNORECASE))
-            offset = 0
-            for match in matches:
-                inicio = match.start() + offset
-                fin = match.end() + offset
-                if not _esta_dentro_formato(resultado, inicio, fin):
-                    texto_antes = resultado[:inicio]
-                    texto_match = resultado[inicio:fin]
-                    texto_despues = resultado[fin:]
-                    resultado = texto_antes + '*' + texto_match + '*' + texto_despues
-                    offset += 2
+            resultado = re.sub(pattern, r'*\1*', resultado, flags=re.IGNORECASE)
 
     return resultado
 
@@ -219,8 +172,8 @@ def formatear_mensaje(alerta, plantilla, *, nombre_plantilla=None, tipo_alerta=N
 
         valor_str = str(valor)
 
-        # Resaltar keywords en campos de texto (contenido, titulo)
-        if keywords and campo in ["contenido", "titulo"]:
+        # Resaltar keywords solo en contenido (no en titulo)
+        if keywords and campo == "contenido":
             valor_str = _resaltar_keywords(valor_str, keywords)
 
         estilo = conf.get("estilo", {}) or {}
