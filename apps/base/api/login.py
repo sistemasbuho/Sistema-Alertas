@@ -95,7 +95,21 @@ class UserValidationGoogle(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({'error': 'El correo proporcionado no se encuentra registrado'}, status=status.HTTP_404_NOT_FOUND)
+            # Verificar si el dominio del email está permitido para registro automático
+            allowed_domains = ['gnilat.com', 'buho.media']
+            email_domain = email.split('@')[-1]
+
+            if email_domain in allowed_domains:
+                # Crear el usuario automáticamente
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    first_name=id_info.get('given_name', ''),
+                    last_name=id_info.get('family_name', ''),
+                    is_active=True
+                )
+            else:
+                return Response({'error': 'El correo proporcionado no se encuentra registrado'}, status=status.HTTP_404_NOT_FOUND)
 
         # Generar los tokens o credenciales necesarias
         tokens = loginTokenUser(request, user)
