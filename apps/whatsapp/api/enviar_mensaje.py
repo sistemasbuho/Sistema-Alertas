@@ -1036,6 +1036,7 @@ def enviar_alertas_a_monitoreo(proyecto_id, tipo_alerta, data_alertas, enviados_
     # Construir payload con la misma estructura de ingesta
     payload = {
         "proveedor": proveedor,
+        "tipo_alerta": tipo_alerta,
         "mensaje": f"{len(alertas_enviadas)} alertas enviadas",
         "listado": alertas_enviadas,
         "errores": [],

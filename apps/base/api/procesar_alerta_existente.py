@@ -82,6 +82,8 @@ class ProcesarAlertaExistenteAPIView(APIView):
             },
         )
 
+        tipo_alerta = "redes" if tipo == "red" else "medios"
+
         # Si ya existía y ya fue enviado, informar
         if not created and detalle_envio.estado_enviado:
             # Formato compatible con ingesta
@@ -89,6 +91,7 @@ class ProcesarAlertaExistenteAPIView(APIView):
             return Response(
                 {
                     "proveedor": "procesamiento_manual",
+                    "tipo_alerta": tipo_alerta,
                     "mensaje": "0 registros creados (1 duplicados)",
                     "listado": [],
                     "errores": [],
@@ -119,6 +122,7 @@ class ProcesarAlertaExistenteAPIView(APIView):
         return Response(
             {
                 "proveedor": "procesamiento_manual",
+                "tipo_alerta": tipo_alerta,
                 "mensaje": "1 registros creados",
                 "listado": [alerta_data],
                 "errores": [],
