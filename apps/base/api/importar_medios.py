@@ -52,7 +52,7 @@ class ImportarArticuloAPIView(APIView):
 
         nuevos: List[Articulo] = []
         aceptados: List[Tuple[Optional[str], Optional[str], Any, str, Optional[str], Any, Any]] = []
-        for titulo, contenido, fecha_raw, url, autor, reach, engagement in registros:
+        for titulo, contenido, fecha_raw, url, autor, reach, engagement, ubicacion in registros:
             if url and url in existentes:
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
@@ -65,6 +65,7 @@ class ImportarArticuloAPIView(APIView):
                     fecha_publicacion=self._parse_fecha(fecha_raw),
                     autor=autor,
                     reach=reach,
+                    ubicacion=ubicacion,
                     proyecto=proyecto,
                     created_by=usuario_creador,
                     modified_by=usuario_creador,
@@ -158,7 +159,7 @@ class ImportarArticuloAPIView(APIView):
     def _normalizar_registros(
         self, articulos_data: List[Dict[str, Any]]
     ) -> Tuple[
-        List[Tuple[Optional[str], Optional[str], Any, str, Optional[str], Any, Any]],
+        List[Tuple[Optional[str], Optional[str], Any, str, Optional[str], Any, Any, Optional[str]]],
         List[Dict[str, Any]],
     ]:
         registros = []
@@ -173,6 +174,7 @@ class ImportarArticuloAPIView(APIView):
             autor = data.get("autor")
             reach = data.get("reach")
             engagement = data.get("engagement")
+            ubicacion = data.get("pais") or data.get("ubicacion")
 
             if url:
                 if url in vistos:
@@ -180,7 +182,7 @@ class ImportarArticuloAPIView(APIView):
                     continue
                 vistos.add(url)
 
-            registros.append((titulo, contenido, fecha_raw, url, autor, reach, engagement))
+            registros.append((titulo, contenido, fecha_raw, url, autor, reach, engagement, ubicacion))
 
         return registros, errores
 
@@ -222,4 +224,5 @@ class ImportarArticuloAPIView(APIView):
             "autor": alerta.get("autor") or alerta.get("autor_name"),
             "reach": alerta.get("reach"),
             "engagement": alerta.get("engagement") or alerta.get("engagement_rate"),
+            "pais": alerta.get("pais") or alerta.get("ubicacion"),
         }

@@ -54,7 +54,7 @@ class ImportarRedesAPIView(APIView):
         red_sociales_map = self._mapear_redes_sociales(registros)
 
         nuevos: List[Redes] = []
-        for contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre in registros:
+        for contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre, ubicacion in registros:
             if url and url in existentes:
                 errores.append({"url": url, "error": "La URL ya existe en este proyecto"})
                 continue
@@ -68,6 +68,7 @@ class ImportarRedesAPIView(APIView):
                     autor=autor,
                     reach=reach,
                     engagement=engagement,
+                    ubicacion=ubicacion,
                     proyecto=proyecto,
                     red_social=red_social_obj,
                     created_by=usuario_creador,
@@ -142,7 +143,7 @@ class ImportarRedesAPIView(APIView):
     def _normalizar_registros(
         self, redes_data: List[Dict[str, Any]]
     ) -> Tuple[
-        List[Tuple[Optional[str], Any, str, Optional[str], Any, Any, Optional[str]]],
+        List[Tuple[Optional[str], Any, str, Optional[str], Any, Any, Optional[str], Optional[str]]],
         List[Dict[str, Any]],
     ]:
         registros = []
@@ -157,6 +158,7 @@ class ImportarRedesAPIView(APIView):
             reach = data.get("reach")
             engagement = data.get("engagement")
             red_social_nombre = data.get("red_social")
+            ubicacion = data.get("pais") or data.get("ubicacion")
 
             if url:
                 if url in vistos:
@@ -165,7 +167,7 @@ class ImportarRedesAPIView(APIView):
                 vistos.add(url)
 
             registros.append(
-                (contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre)
+                (contenido, fecha_raw, url, autor, reach, engagement, red_social_nombre, ubicacion)
             )
 
         return registros, errores
@@ -287,6 +289,7 @@ class ImportarRedesAPIView(APIView):
             "reach": reach,
             "engagement": engagement,
             "red_social": alerta.get("red_social") or alerta.get("social_network") or alerta.get("SOCIAL_NETWORK"),
+            "pais": alerta.get("pais") or alerta.get("ubicacion"),
         }
 
     def _parse_value(self, value: Any) -> Any:
