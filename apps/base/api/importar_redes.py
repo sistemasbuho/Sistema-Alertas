@@ -93,7 +93,7 @@ class ImportarRedesAPIView(APIView):
 
             for red in nuevos:
                 creados.append({
-                    "id": red.id,
+                    "id": str(red.id),
                     "url": red.url,
                     "contenido": red.contenido,
                     "autor": red.autor,

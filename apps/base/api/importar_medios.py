@@ -91,7 +91,7 @@ class ImportarArticuloAPIView(APIView):
             for articulo, registro in zip(nuevos, aceptados):
                 engagement = registro[6]
                 creados.append({
-                    "id": articulo.id,
+                    "id": str(articulo.id),
                     "titulo": articulo.titulo,
                     "url": articulo.url,
                     "contenido": articulo.contenido,
