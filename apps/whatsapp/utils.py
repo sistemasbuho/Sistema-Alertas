@@ -6,6 +6,14 @@ from typing import Iterable, List, MutableMapping, Sequence
 
 from django.utils.dateparse import parse_date, parse_datetime, parse_time
 
+_AM_PM_PATTERN = re.compile(r"\b([ap])(?:\s*\.)?\s*m(?:\s*\.)?\b", re.IGNORECASE)
+
+
+def _normalizar_indicador_12h(texto: str) -> str:
+    """Normaliza indicadores ``AM``/``PM`` escritos con variantes comunes."""
+
+    resultado = _AM_PM_PATTERN.sub(lambda match: match.group(1).upper() + "M", texto)
+    return resultado.replace("AM.", "AM").replace("PM.", "PM")
 
 def _parse_datetime_value(valor: object) -> datetime | None:
     """Parses a value into a timezone-aware ``datetime`` when possible."""
