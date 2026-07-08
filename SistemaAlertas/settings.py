@@ -128,6 +128,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://sistema.alertas.buho.media",
     "http://sistema.alertas.buho.media",
+    "https://alertas.buho.media",
+    "http://alertas.buho.media",
     "https://api.monitoreo.buho.media",
     "https://monitoreo.buho.media"
 
