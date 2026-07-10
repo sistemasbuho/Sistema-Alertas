@@ -1,0 +1,20 @@
+# Worker de enriquecimiento (cola `enrich`): imagen con Playwright/Chromium
+# para ScrapeGraphAI. Solo la usa el servicio worker-enrich del compose.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-enrich.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-enrich.txt \
+    && playwright install --with-deps chromium
+
+COPY . .
+
+CMD ["celery", "-A", "SistemaAlertas", "worker", "-Q", "enrich", "-c", "2", "-l", "info"]

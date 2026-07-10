@@ -18,3 +18,8 @@ django-filter
 requests
 openpyxl
 
+# Pipeline IA + async
+celery[redis]
+redis
+google-genai
+

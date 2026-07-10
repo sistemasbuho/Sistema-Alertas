@@ -50,7 +50,9 @@ DJANGO_APPS = [
 PROJECT_APPS = [
     'apps.base',
     'apps.proyectos',
-] 
+    'apps.whatsapp',
+    'apps.ia',
+]
 
 THIRD_PARTY_APPS = [
     'rest_framework',
@@ -244,8 +246,81 @@ REST_FRAMEWORK = {
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=365*100),   
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=365*100),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=365*100),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
 }
+
+import sys
+
+TESTING = "test" in sys.argv
+
+# Las migraciones legacy no aplican sobre SQLite (CharFields sin max_length se
+# renderizan como varchar(None)); en tests el esquema se crea directamente
+# desde los modelos actuales.
+if TESTING:
+    MIGRATION_MODULES = {
+        "base": None,
+        "proyectos": None,
+        "whatsapp": None,
+        "ia": None,
+    }
+
+# --- Celery / Redis ---
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# En tests las tareas corren de forma síncrona (sin broker)
+CELERY_TASK_ALWAYS_EAGER = (
+    os.getenv("CELERY_EAGER", "false").lower() == "true" or "test" in sys.argv
+)
+CELERY_TASK_EAGER_PROPAGATES = CELERY_TASK_ALWAYS_EAGER
+CELERY_TASK_ROUTES = {
+    "ia.*": {"queue": "fast"},
+    "whatsapp.*": {"queue": "fast"},
+    "enriquecimiento.*": {"queue": "enrich"},
+}
+CELERY_BEAT_SCHEDULE = {
+    "rescatar-alertas-atascadas": {
+        "task": "ia.rescatar_alertas_atascadas",
+        "schedule": 60.0,
+    },
+}
+
+if os.getenv("REDIS_URL"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
+
+# --- Pipeline IA (clasificación + auto-envío) ---
+IA_PIPELINE_ENABLED = os.getenv("IA_PIPELINE_ENABLED", "true").lower() == "true"
+IA_TIMEOUT_SECONDS = int(os.getenv("IA_TIMEOUT_SECONDS", "45"))        # soft limit por tarea de clasificación
+IA_TIMEOUT_TOTAL = int(os.getenv("IA_TIMEOUT_TOTAL", "120"))           # sweeper: atascadas → cola humana (B3)
+ENRIQUECIMIENTO_TIMEOUT = int(os.getenv("ENRIQUECIMIENTO_TIMEOUT", "300"))
+
+# --- Vertex AI (Gemini) ---
+# GOOGLE_APPLICATION_CREDENTIALS debe apuntar al JSON del service account (vía .env)
+VERTEX_PROJECT_ID = os.getenv("VERTEX_PROJECT_ID")
+VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "us-central1")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# --- Enriquecimiento ---
+SIMILARWEB_API_KEY = os.getenv("SIMILARWEB_API_KEY")
+
+# --- Proveedores de mensajería WhatsApp (cadena primario → fallback) ---
+WHATSAPP_PROVIDERS = [
+    p.strip() for p in os.getenv("WHATSAPP_PROVIDERS", "whapi").split(",") if p.strip()
+]
+OPENWA_BASE_URL = os.getenv("OPENWA_BASE_URL")
+OPENWA_API_KEY = os.getenv("OPENWA_API_KEY")

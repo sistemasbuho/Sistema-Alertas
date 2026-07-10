@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/', include('apps.base.urls')),
     path('api/', include('apps.proyectos.urls')),
     path('api/', include('apps.whatsapp.urls')),
+    path('api/', include('apps.ia.urls')),
 
 
 

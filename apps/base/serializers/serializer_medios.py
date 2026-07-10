@@ -11,6 +11,7 @@ class MediosSerializer(serializers.ModelSerializer):
     proyecto_nombre = serializers.SerializerMethodField()
     estado_revisado = serializers.SerializerMethodField()
     estado_enviado = serializers.SerializerMethodField()
+    evaluacion_ia = serializers.SerializerMethodField()
 
     proyecto_keywords = serializers.SerializerMethodField()
     fecha_publicacion = serializers.DateTimeField(required=False, allow_null=True)
@@ -23,6 +24,17 @@ class MediosSerializer(serializers.ModelSerializer):
 
     def get_proyecto_nombre(self, obj):
         return obj.proyecto.nombre if obj.proyecto else None
+
+    def get_evaluacion_ia(self, obj):
+        from apps.ia.serializers.serializer_evaluacion import EvaluacionIAResumenSerializer
+
+        detalles = list(obj.detalles_envio.all())
+        if not detalles:
+            return None
+        evaluacion = (
+            detalles[0].evaluaciones_ia.order_by("-created_at").first()
+        )
+        return EvaluacionIAResumenSerializer(evaluacion).data if evaluacion else None
 
     def get_proyecto_keywords(self, obj):
         if obj.proyecto and obj.proyecto.keywords:

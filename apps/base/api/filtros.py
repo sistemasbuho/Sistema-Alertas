@@ -56,6 +56,12 @@ class RedesFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
     estado_enviado = django_filters.BooleanFilter(method="filter_estado_enviado")
     estado_revisado = django_filters.BooleanFilter(method="filter_estado_revisado")
+    estado_pipeline = django_filters.CharFilter(method="filter_estado_pipeline")
+
+    def filter_estado_pipeline(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(detalles_envio__estado_pipeline=value).distinct()
 
     class Meta:
         model = Redes
@@ -131,7 +137,12 @@ class MediosFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(field_name="created_by__username", lookup_expr="icontains")
     estado_enviado = django_filters.BooleanFilter(method="filter_estado_enviado")
     estado_revisado = django_filters.BooleanFilter(method="filter_estado_revisado")
+    estado_pipeline = django_filters.CharFilter(method="filter_estado_pipeline")
 
+    def filter_estado_pipeline(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(detalles_envio__estado_pipeline=value).distinct()
 
     class Meta:
         model = Articulo
@@ -197,6 +208,7 @@ class DetalleEnvioFilter(django_filters.FilterSet):
     proyecto = django_filters.CharFilter(method="filter_proyecto")
     estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
     estado_revisado = django_filters.BooleanFilter(field_name="estado_revisado")
+    estado_pipeline = django_filters.CharFilter(field_name="estado_pipeline")
     autor = django_filters.CharFilter(method="filter_autor")
     url = django_filters.CharFilter(method="filter_url_exacta")
     url_coincide = django_filters.CharFilter(method="filter_url_coincide")

@@ -1513,6 +1513,46 @@ class IngestionAPIView(APIView):
             "descartados": descartados,
         }
 
+    def _despachar_pipeline_ia(self, proyecto: Proyecto, listado: List[Dict[str, Any]]) -> bool:
+        """Si el proyecto tiene matriz IA activa, encola la clasificación de las
+        alertas ingestadas y devuelve True (el envío legacy no corre)."""
+        if not getattr(settings, "IA_PIPELINE_ENABLED", False):
+            return False
+        matriz = getattr(proyecto, "matriz_ia", None)
+        if matriz is None or not matriz.activo:
+            return False
+
+        alerta_ids = [item.get("id") for item in listado if item.get("id")]
+        if not alerta_ids:
+            return True
+
+        from django.db.models import Q
+
+        detalles = list(
+            DetalleEnvio.objects.filter(
+                Q(medio_id__in=alerta_ids) | Q(red_social_id__in=alerta_ids),
+                proyecto=proyecto,
+                estado_enviado=False,
+            ).values_list("id", flat=True)
+        )
+        DetalleEnvio.objects.filter(id__in=detalles).update(
+            estado_pipeline=DetalleEnvio.PIPELINE_PENDIENTE_IA
+        )
+
+        from apps.ia.tasks import clasificar_alerta
+
+        def _encolar():
+            for detalle_id in detalles:
+                clasificar_alerta.delay(str(detalle_id))
+
+        transaction.on_commit(_encolar)
+        logger.info(
+            "Pipeline IA: %s alertas encoladas para el proyecto %s",
+            len(detalles),
+            proyecto.id,
+        )
+        return True
+
     def _procesar_envio_automatico(
         self,
         proyecto: Proyecto,
@@ -1521,12 +1561,17 @@ class IngestionAPIView(APIView):
         if not proyecto:
             return
 
-        tipo_envio = getattr(proyecto, "tipo_envio", "")
-        if not isinstance(tipo_envio, str) or tipo_envio.strip().lower() != "automatico":
-            return
-
         listado = respuesta.get("listado") or []
         if not listado:
+            return
+
+        # El pipeline IA aplica para todo proyecto con matriz activa,
+        # independientemente del tipo_envio.
+        if self._despachar_pipeline_ia(proyecto, listado):
+            return
+
+        tipo_envio = getattr(proyecto, "tipo_envio", "")
+        if not isinstance(tipo_envio, str) or tipo_envio.strip().lower() != "automatico":
             return
 
         tipo_alerta = self._obtener_tipo_alerta_proyecto(proyecto)
@@ -1549,15 +1594,16 @@ class IngestionAPIView(APIView):
             kwargs["usuario_id"] = usuario_id
 
         try:
-            enviar_alertas_automatico(
-                proyecto.id,
-                tipo_alerta,
-                alertas,
-                **kwargs,
+            from apps.whatsapp.tasks import enviar_lote_legacy
+
+            transaction.on_commit(
+                lambda: enviar_lote_legacy.delay(
+                    str(proyecto.id), tipo_alerta, alertas, kwargs.get("usuario_id")
+                )
             )
         except Exception:  # pylint: disable=broad-except
             logger.exception(
-                "Error enviando alertas automáticas para el proyecto %s",
+                "Error encolando alertas automáticas para el proyecto %s",
                 proyecto.id,
             )
 

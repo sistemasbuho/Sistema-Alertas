@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django_currentuser.middleware import get_current_user
 import uuid
 from simple_history.models import HistoricalRecords
@@ -93,11 +94,47 @@ class Redes(BaseModel):
 
 
 class DetalleEnvio(BaseModel):
+    # Estados del pipeline IA. "manual" = flujo legacy sin IA (default para
+    # proyectos sin matriz activa y filas anteriores al sprint).
+    PIPELINE_MANUAL = "manual"
+    PIPELINE_PENDIENTE_IA = "pendiente_ia"
+    PIPELINE_CLASIFICANDO = "clasificando"
+    PIPELINE_ENRIQUECIENDO = "enriqueciendo"
+    PIPELINE_AUTO_APROBADA = "auto_aprobada"
+    PIPELINE_COLA_EXCEPCIONES = "cola_excepciones"
+    PIPELINE_APROBADA_HUMANA = "aprobada_humana"
+    PIPELINE_DESCARTADA_IA = "descartada_ia"
+    PIPELINE_DESCARTADA_HUMANA = "descartada_humana"
+    PIPELINE_ENVIADA = "enviada"
+    PIPELINE_ERROR_ENVIO = "error_envio"
+
+    ESTADO_PIPELINE_CHOICES = [
+        (PIPELINE_MANUAL, "Manual / legacy"),
+        (PIPELINE_PENDIENTE_IA, "Pendiente IA"),
+        (PIPELINE_CLASIFICANDO, "Clasificando"),
+        (PIPELINE_ENRIQUECIENDO, "Enriqueciendo"),
+        (PIPELINE_AUTO_APROBADA, "Auto-aprobada"),
+        (PIPELINE_COLA_EXCEPCIONES, "Cola de excepciones"),
+        (PIPELINE_APROBADA_HUMANA, "Aprobada por humano"),
+        (PIPELINE_DESCARTADA_IA, "Descartada por IA"),
+        (PIPELINE_DESCARTADA_HUMANA, "Descartada por humano"),
+        (PIPELINE_ENVIADA, "Enviada"),
+        (PIPELINE_ERROR_ENVIO, "Error de envío"),
+    ]
+
     inicio_envio = models.DateTimeField(null=True)
     fin_envio = models.DateTimeField(null=True)
     mensaje = models.TextField(null=True)
     estado_enviado = models.BooleanField(default=False)
     estado_revisado = models.BooleanField(default=False)
+    estado_pipeline = models.CharField(
+        max_length=20,
+        choices=ESTADO_PIPELINE_CHOICES,
+        default=PIPELINE_MANUAL,
+        db_index=True,
+    )
+    proveedor_envio = models.CharField(max_length=20, null=True, blank=True)
+    intentos_ia = models.PositiveSmallIntegerField(default=0)
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,  
@@ -131,6 +168,29 @@ class DetalleEnvio(BaseModel):
     )
 
     history = HistoricalRecords(table_name='detalle_envio_history')
+
+    def aplicar_estado_pipeline(self, estado, guardar=True):
+        """Transiciona el estado del pipeline manteniendo sincronizados los
+        booleanos legacy que consume el frontend actual."""
+        self.estado_pipeline = estado
+
+        if estado == self.PIPELINE_ENVIADA:
+            self.estado_enviado = True
+            if not self.fin_envio:
+                self.fin_envio = timezone.now()
+        elif estado == self.PIPELINE_ERROR_ENVIO:
+            self.estado_enviado = False
+        elif estado == self.PIPELINE_COLA_EXCEPCIONES:
+            self.estado_revisado = False
+        elif estado in (
+            self.PIPELINE_APROBADA_HUMANA,
+            self.PIPELINE_DESCARTADA_HUMANA,
+            self.PIPELINE_DESCARTADA_IA,
+        ):
+            self.estado_revisado = True
+
+        if guardar:
+            self.save()
 
     def __str__(self):
         proyecto_nombre = None

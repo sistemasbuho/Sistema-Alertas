@@ -30,3 +30,6 @@ CLAUDE.md
 
 
 oraculo-buho-media-353fe989b771.json
+
+# Estado runtime de celery beat
+celerybeat-schedule*

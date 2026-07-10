@@ -1,0 +1,4 @@
+# Dependencias exclusivas del worker de enriquecimiento (Dockerfile.enrich).
+# No instalar en la imagen base: Playwright/Chromium pesan cientos de MB.
+scrapegraphai
+playwright
