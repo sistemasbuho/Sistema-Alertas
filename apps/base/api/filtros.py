@@ -206,7 +206,7 @@ class DetalleEnvioFilter(django_filters.FilterSet):
     usuario_nombre = django_filters.CharFilter(method="filter_usuario_creador")
     proyecto_nombre = django_filters.CharFilter(field_name="proyecto__nombre", lookup_expr="icontains")
     proyecto = django_filters.CharFilter(method="filter_proyecto")
-    estado_enviado = django_filters.BooleanFilter(field_name="estado_enviado")
+    estado_enviado = django_filters.CharFilter(method="filter_estado_enviado")
     estado_revisado = django_filters.BooleanFilter(field_name="estado_revisado")
     estado_pipeline = django_filters.CharFilter(field_name="estado_pipeline")
     autor = django_filters.CharFilter(method="filter_autor")
@@ -239,6 +239,15 @@ class DetalleEnvioFilter(django_filters.FilterSet):
             "medio_url_coincide",
             "red_social_nombre",
         ]
+
+    def filter_estado_enviado(self, queryset, name, value):
+        # El frontend envía ENVIADO/FALLIDO; se aceptan también valores booleanos
+        valor = (value or "").strip().lower()
+        if valor in ("enviado", "true", "1"):
+            return queryset.filter(estado_enviado=True)
+        if valor in ("fallido", "false", "0"):
+            return queryset.filter(estado_enviado=False)
+        return queryset
 
     def filter_created_at_desde(self, queryset, name, value):
         if value is None:

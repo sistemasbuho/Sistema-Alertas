@@ -37,9 +37,12 @@ class CrearCamposPlantillaAPIView(APIView):
         Crea o actualiza la configuración de los campos de una plantilla.
         - Si un campo ya existe en `config_campos`, se actualiza (orden/estilo).
         - Si no existe, se agrega.
+        - Los campos listados en `eliminar` se quitan de la configuración
+          (dejan de aparecer en el mensaje).
         """
         plantilla = get_object_or_404(TemplateConfig, id=plantilla_id)
         campos_data = request.data.get("campos", [])
+        campos_eliminar = request.data.get("eliminar", [])
 
         # Cargamos lo que ya tenga guardado
         config_actual = plantilla.config_campos or {}
@@ -61,6 +64,9 @@ class CrearCamposPlantillaAPIView(APIView):
                 nueva_config[clave] = valor
 
             config_actual[nombre_campo] = nueva_config
+
+        for nombre_campo in campos_eliminar:
+            config_actual.pop(nombre_campo, None)
 
         # Guardamos en la plantilla
         plantilla.config_campos = config_actual
