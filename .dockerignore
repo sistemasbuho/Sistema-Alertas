@@ -1,0 +1,15 @@
+.git
+.gitignore
+.dockerignore
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.sqlite3
+celerybeat-schedule*
+*.log
+.env
+docs/
+docker-compose.yml
+Dockerfile
+Dockerfile.enrich
+oraculo-buho-media-*.json

@@ -1,5 +1,6 @@
-# Usa una imagen base oficial de Python
-FROM python:latest
+# Imagen base fijada (alineada con Dockerfile.enrich); `latest` invalidaba
+# toda la caché cuando el tag cambiaba en el registro.
+FROM python:3.12-slim
 
 # Evita que Python guarde archivos .pyc y usa salida sin buffer
 ENV PYTHONUNBUFFERED=1
