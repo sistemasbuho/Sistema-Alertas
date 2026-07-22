@@ -12,4 +12,4 @@ docs/
 docker-compose.yml
 Dockerfile
 Dockerfile.enrich
-oraculo-buho-media-*.json
+alertas-api-*.json
