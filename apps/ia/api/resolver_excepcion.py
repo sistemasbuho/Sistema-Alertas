@@ -107,7 +107,7 @@ class ResolverExcepcionAPIView(APIView):
 
         with transaction.atomic():
             detalle = (
-                DetalleEnvio.objects.select_for_update()
+                DetalleEnvio.objects.select_for_update(of=("self",))
                 .select_related("proyecto", "red_social", "medio")
                 .filter(id=detalle_id)
                 .first()
@@ -159,7 +159,7 @@ class ResolverExcepcionesBulkAPIView(APIView):
         for detalle in detalles:
             with transaction.atomic():
                 detalle_bloqueado = (
-                    DetalleEnvio.objects.select_for_update()
+                    DetalleEnvio.objects.select_for_update(of=("self",))
                     .select_related("red_social", "medio")
                     .get(id=detalle.id)
                 )

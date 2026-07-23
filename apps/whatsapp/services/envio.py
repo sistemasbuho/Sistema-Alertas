@@ -65,7 +65,7 @@ def enviar_detalle(detalle_envio_id):
 
     with transaction.atomic():
         detalle = (
-            DetalleEnvio.objects.select_for_update()
+            DetalleEnvio.objects.select_for_update(of=("self",))
             .select_related("proyecto", "red_social__red_social", "medio")
             .filter(id=detalle_envio_id)
             .first()
