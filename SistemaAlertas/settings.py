@@ -280,6 +280,10 @@ CELERY_TASK_ALWAYS_EAGER = (
 )
 CELERY_TASK_EAGER_PROPAGATES = CELERY_TASK_ALWAYS_EAGER
 CELERY_TASK_ROUTES = {
+    # El envío (rápido, ~0.5s) va a su propia cola para no morir de hambre
+    # detrás de la clasificación IA (lenta, ~7s) en la cola `fast`. La atiende
+    # worker-enrich (ver `-Q enrich,envio` en docker-compose.yml).
+    "whatsapp.enviar_alerta": {"queue": "envio"},
     "ia.*": {"queue": "fast"},
     "whatsapp.*": {"queue": "fast"},
     "enriquecimiento.*": {"queue": "enrich"},
